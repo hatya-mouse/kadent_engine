@@ -116,6 +116,105 @@ impl NoteTrack {
     fn init_local_buffer(&mut self) {
         self.local_buffer = vec![0.0; self.audio_ctx.buffer_size];
     }
+
+    // --- PROCESS ---
+
+    /// Seeks the event cursor to the current playhead position.
+    fn seek_event_cursor(&mut self, playhead: usize) {
+        if self
+            .events
+            .get(self.event_cursor)
+            .is_some_and(|e| e.sample_index > playhead)
+            || (self.event_cursor > 0 && self.events[self.event_cursor - 1].sample_index > playhead)
+        {
+            self.event_cursor = self.events.partition_point(|e| e.sample_index < playhead);
+        }
+    }
+
+    /// Propagates the voice data from the previous sample to the current sample.
+    fn propagate_voices(&mut self, local_sample: usize, max_voices: usize, current: usize) {
+        // If the current sample is the first sample in the buffer,
+        // Copy from the last voices
+        if local_sample == 0 && !self.last_voices.is_empty() {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    self.last_voices.as_ptr(),
+                    self.voice_buffer.as_mut_ptr(),
+                    max_voices,
+                );
+            }
+        }
+
+        // If the current sample is not the first sample in the buffer,
+        // copy the previous voices to the current index
+        if local_sample > 0 {
+            let previous = (local_sample - 1) * max_voices;
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    self.voice_buffer[previous..].as_ptr(),
+                    self.voice_buffer[current..].as_mut_ptr(),
+                    max_voices,
+                );
+            }
+        }
+    }
+
+    /// Updates the ages for each voices.
+    fn increment_ages(&mut self, current: usize) {
+        for &index in self.live_voices.values() {
+            self.voice_buffer[current + index].age += 1.0 / self.audio_ctx.sample_rate as f32;
+        }
+    }
+
+    /// Consumes the events at the current sample and updates the voice buffer accordingly.
+    fn consume_events_at_sample(&mut self, sample: usize, current: usize) {
+        // Increment age for sequenced voices
+        for (index, _) in self.active_voices.iter() {
+            self.voice_buffer[current + index].age += 1.0 / self.audio_ctx.sample_rate as f32;
+        }
+
+        // Consume the events in this sample
+        while let Some(event) = self.events.get(self.event_cursor) {
+            // Break if the event is in future
+            if event.sample_index > sample {
+                break;
+            }
+            // If the event is the past event, skip the event
+            if event.sample_index < sample {
+                self.event_cursor += 1;
+                continue;
+            }
+
+            // Copy the frequency and velocity to avoid reference issues
+            let frequency = event.frequency;
+            let velocity = event.velocity;
+
+            if event.is_note_on {
+                // Start playing the note from the sample
+                let voice_index = self.find_or_steal_voice(frequency);
+                // Set the new voice to the voice buffer
+                self.voice_buffer[current + voice_index] =
+                    Voice::new(frequency, velocity, 0.0, true);
+            } else {
+                // Remove the active voice whose frequency matches the event frequency
+                if let Some(remove_index) = self
+                    .active_voices
+                    .iter()
+                    .position(|(_, freq)| *freq == event.frequency)
+                {
+                    // Remove the index from the active_voices and get the voice index
+                    let (voice_index, _) = self.active_voices.remove(remove_index).unwrap();
+                    // Mark the voice index as free
+                    self.free_voices.push(voice_index);
+                    self.voice_buffer[current + voice_index].is_active = false;
+                    self.voice_buffer[current + voice_index].age = 0.0;
+                }
+            }
+
+            // Increment the event cursor
+            self.event_cursor += 1;
+        }
+    }
 }
 
 impl Track for NoteTrack {
@@ -208,15 +307,8 @@ impl Track for NoteTrack {
         let buffer_end = playhead + self.audio_ctx.buffer_size;
         let max_voices = self.audio_ctx.max_voices;
 
-        // Seek the event cursor
-        if self
-            .events
-            .get(self.event_cursor)
-            .is_some_and(|e| e.sample_index > playhead)
-            || (self.event_cursor > 0 && self.events[self.event_cursor - 1].sample_index > playhead)
-        {
-            self.event_cursor = self.events.partition_point(|e| e.sample_index < playhead);
-        }
+        // Seek the event cursor to the current playhead position
+        self.seek_event_cursor(playhead);
 
         for sample in playhead..buffer_end {
             // Calculate the local sample in the buffer chunk
@@ -224,85 +316,14 @@ impl Track for NoteTrack {
             // Calculate the index of the first current voice
             let current = local_sample * max_voices;
 
-            // If the current sample is the first sample in the buffer,
-            // Copy from the last voices
-            if local_sample == 0 && !self.last_voices.is_empty() {
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        self.last_voices.as_ptr(),
-                        self.voice_buffer.as_mut_ptr(),
-                        max_voices,
-                    );
-                }
-            }
-
-            // If the current sample is not the first sample in the buffer,
-            // copy the previous voices to the current index
-            if local_sample > 0 {
-                let previous = (local_sample - 1) * max_voices;
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        self.voice_buffer[previous..].as_ptr(),
-                        self.voice_buffer[current..].as_mut_ptr(),
-                        max_voices,
-                    );
-                }
-            }
-
-            // Increment age for live midi voices
-            for &index in self.live_voices.values() {
-                self.voice_buffer[current + index].age += 1.0 / self.audio_ctx.sample_rate as f32;
-            }
+            // Copy the voice data from the previous sample
+            self.propagate_voices(local_sample, max_voices, current);
+            // Increment age for each voices
+            self.increment_ages(current);
 
             // Process the sequenced voices when playing
             if is_playing {
-                // Increment age for sequenced voices
-                for (index, _) in self.active_voices.iter() {
-                    self.voice_buffer[current + index].age +=
-                        1.0 / self.audio_ctx.sample_rate as f32;
-                }
-
-                // Consume the events in this sample
-                while let Some(event) = self.events.get(self.event_cursor) {
-                    // Break if the event is in future
-                    if event.sample_index > sample {
-                        break;
-                    }
-                    // If the event is the past event, skip the event
-                    if event.sample_index < sample {
-                        self.event_cursor += 1;
-                        continue;
-                    }
-
-                    // Copy the frequency and velocity to avoid reference issues
-                    let frequency = event.frequency;
-                    let velocity = event.velocity;
-
-                    if event.is_note_on {
-                        // Start playing the note from the sample
-                        let voice_index = self.find_or_steal_voice(frequency);
-                        // Set the new voice to the voice buffer
-                        self.voice_buffer[current + voice_index] =
-                            Voice::new(frequency, velocity, 0.0, true);
-                    } else {
-                        // Remove the active voice whose frequency matches the event frequency
-                        if let Some(remove_index) = self
-                            .active_voices
-                            .iter()
-                            .position(|(_, freq)| *freq == event.frequency)
-                        {
-                            // Remove the index from the active_voices and get the voice index
-                            let (voice_index, _) = self.active_voices.remove(remove_index).unwrap();
-                            // Mark the voice index as free
-                            self.free_voices.push(voice_index);
-                            self.voice_buffer[current + voice_index].is_active = false;
-                            self.voice_buffer[current + voice_index].age = 0.0;
-                        }
-                    }
-
-                    // Increment the event cursor
-                    self.event_cursor += 1;
-                }
+                self.consume_events_at_sample(sample, current);
             }
         }
 
