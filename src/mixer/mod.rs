@@ -4,6 +4,7 @@ mod tempo_map;
 mod track_id;
 
 pub use project::Project;
+use rayon::iter::{ParallelBridge, ParallelIterator};
 pub use tempo_event::TempoEvent;
 pub use tempo_map::TempoMap;
 pub use track_id::TrackID;
@@ -49,9 +50,20 @@ impl Mixer {
             dst.fill(0.0);
         }
 
-        // Call process function for every tracks
-        for track in self.project.tracks.values_mut() {
-            track.process_to_local_buffer(is_playing, playhead);
+        // Process samples and write them to local buffers
+        self.project
+            .tracks
+            .values_mut()
+            .par_bridge()
+            .for_each(|track| {
+                track.process_to_local_buffer(is_playing, playhead);
+            });
+
+        // Add the output of each track to the main output buffer
+        for track in self.project.tracks.values() {
+            for (out_sample, track_sample) in output.iter_mut().zip(track.get_local_buffer()) {
+                *out_sample += track_sample;
+            }
         }
 
         // Clamp the output between -1.0 and 1.0 for safety
