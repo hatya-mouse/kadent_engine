@@ -1,18 +1,14 @@
 use crate::{
-    data_types::{AudioContext, Beats, MidiEvent, Voice},
-    graph::{Graph, error::GraphError},
+    data_types::Voice,
     mixer::TempoMap,
-    track::{
-        RegionID, Track,
-        note_track::{NoteTrack, VoiceEvent},
-    },
+    track::note_track::{NoteTrack, VoiceEvent},
 };
 
 impl NoteTrack {
     // --- VOICE GETTING ---
 
     /// Returns the vacant voice index, or returns the index of the oldest voice.
-    fn find_or_steal_voice(&mut self, new_freq: f32) -> usize {
+    pub(super) fn find_or_steal_voice(&mut self, new_freq: f32) -> usize {
         let new_voice_index = self
             .free_voices
             .pop()
@@ -22,42 +18,10 @@ impl NoteTrack {
         new_voice_index
     }
 
-    // --- REALTIME MIDI ---
-
-    /// Receives live MIDI events and updates the voice state.
-    /// Must be called before process() so that changes take effect from sample 0 of the buffer.
-    pub fn pass_midi(&mut self, events: &[MidiEvent]) {
-        for event in events {
-            match event {
-                MidiEvent::NoteOn { pitch, velocity } => {
-                    // Allocate from the shared pool, stealing the oldest sequenced voice if full
-                    let voice_idx = self
-                        .free_voices
-                        .pop()
-                        .or_else(|| self.active_voices.pop_front().map(|(vi, _)| vi))
-                        .unwrap_or(0);
-                    self.live_voices.insert(*pitch, voice_idx);
-                    if let Some(v) = self.last_voices.get_mut(voice_idx) {
-                        *v = Voice::new(*pitch as f32, *velocity as f32 / 127.0, 0.0, true);
-                    }
-                }
-                MidiEvent::NoteOff { pitch } => {
-                    if let Some(voice_idx) = self.live_voices.remove(pitch) {
-                        self.free_voices.push(voice_idx);
-                        if let Some(v) = self.last_voices.get_mut(voice_idx) {
-                            v.is_active = false;
-                            v.age = 0.0;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     // --- PREPARATION ---
 
     /// Retrieves the notes from the regions and converts them to events.
-    fn retrieve_and_register_notes(&mut self, tempo_map: &TempoMap) {
+    pub(super) fn retrieve_and_register_notes(&mut self, tempo_map: &TempoMap) {
         for region in self.regions.values() {
             let region_end = region.start + region.duration;
 
@@ -102,7 +66,7 @@ impl NoteTrack {
     }
 
     /// Initializes the voices.
-    fn init_voices(&mut self) {
+    pub(super) fn init_voices(&mut self) {
         // Initialize the voice buffer
         self.voice_buffer =
             vec![Voice::default(); self.audio_ctx.buffer_size * self.audio_ctx.max_voices];
@@ -113,14 +77,14 @@ impl NoteTrack {
     }
 
     /// Initializes the local buffer based on the buffer size.
-    fn init_local_buffer(&mut self) {
+    pub(super) fn init_local_buffer(&mut self) {
         self.local_buffer = vec![0.0; self.audio_ctx.buffer_size];
     }
 
     // --- PROCESS ---
 
     /// Seeks the event cursor to the current playhead position.
-    fn seek_event_cursor(&mut self, playhead: usize) {
+    pub(super) fn seek_event_cursor(&mut self, playhead: usize) {
         if self
             .events
             .get(self.event_cursor)
@@ -132,7 +96,12 @@ impl NoteTrack {
     }
 
     /// Propagates the voice data from the previous sample to the current sample.
-    fn propagate_voices(&mut self, local_sample: usize, max_voices: usize, current: usize) {
+    pub(super) fn propagate_voices(
+        &mut self,
+        local_sample: usize,
+        max_voices: usize,
+        current: usize,
+    ) {
         // If the current sample is the first sample in the buffer,
         // Copy from the last voices
         if local_sample == 0 && !self.last_voices.is_empty() {
@@ -160,14 +129,14 @@ impl NoteTrack {
     }
 
     /// Updates the ages for each voices.
-    fn increment_ages(&mut self, current: usize) {
+    pub(super) fn increment_ages(&mut self, current: usize) {
         for &index in self.live_voices.values() {
             self.voice_buffer[current + index].age += 1.0 / self.audio_ctx.sample_rate as f32;
         }
     }
 
     /// Consumes the events at the current sample and updates the voice buffer accordingly.
-    fn consume_events_at_sample(&mut self, sample: usize, current: usize) {
+    pub(super) fn consume_events_at_sample(&mut self, sample: usize, current: usize) {
         // Increment age for sequenced voices
         for (index, _) in self.active_voices.iter() {
             self.voice_buffer[current + index].age += 1.0 / self.audio_ctx.sample_rate as f32;
@@ -214,142 +183,5 @@ impl NoteTrack {
             // Increment the event cursor
             self.event_cursor += 1;
         }
-    }
-}
-
-impl Track for NoteTrack {
-    // --- CLONING ---
-
-    fn clone_box(&self) -> Box<dyn Track> {
-        Box::new(self.clone())
-    }
-
-    // --- GRAPH GETTING ---
-
-    fn get_graph(&self) -> &Graph {
-        &self.graph
-    }
-
-    fn get_graph_mut(&mut self) -> &mut Graph {
-        &mut self.graph
-    }
-
-    // --- GRAPH UPDATING ---
-
-    fn set_graph(&mut self, graph: Graph) {
-        self.graph = graph;
-    }
-
-    // --- REGION MODIFICATION ---
-
-    fn move_region(&mut self, region_id: &RegionID, new_start: Beats) {
-        if let Some(region) = self.regions.get_mut(region_id) {
-            region.start = new_start;
-        }
-    }
-
-    fn set_region_duration(&mut self, region_id: &RegionID, new_duration: Beats) {
-        if let Some(region) = self.regions.get_mut(region_id) {
-            region.duration = new_duration;
-        }
-    }
-
-    fn remove_region(&mut self, region_id: &RegionID) {
-        self.regions.remove(region_id);
-    }
-
-    // --- AUDIO CONTEXT UPDARING ---
-
-    fn set_audio_ctx(&mut self, audio_ctx: &AudioContext) {
-        self.audio_ctx = audio_ctx.clone();
-        self.graph.set_audio_ctx(audio_ctx);
-    }
-
-    // --- SEEKING ---
-
-    fn seek(&mut self, playhead: usize) {
-        // Clear all voices before seeking
-        self.active_voices.clear();
-        self.live_voices.clear();
-        self.free_voices = (0..self.audio_ctx.max_voices).collect();
-        self.last_voices = vec![Voice::default(); self.audio_ctx.max_voices];
-        // Recalculate the event cursor
-        self.event_cursor = self.events.partition_point(|e| e.sample_index < playhead);
-    }
-
-    // --- TRACK PROCESSING ---
-
-    fn prepare(
-        &mut self,
-        _start: usize,
-        _duration: usize,
-        tempo_map: &TempoMap,
-    ) -> Result<(), GraphError> {
-        // Clear the old events
-        self.events.clear();
-
-        // Retrieve the notes from the regions and convert them to events
-        self.retrieve_and_register_notes(tempo_map);
-        // Sort the events
-        self.events.sort_unstable_by_key(|e| e.sample_index);
-
-        // Initialize the voices
-        self.init_voices();
-        // Initialize the local buffer
-        self.init_local_buffer();
-
-        // Prepare the graph
-        self.graph.prepare()
-    }
-
-    fn process_to_local_buffer(&mut self, is_playing: bool, playhead: usize) {
-        // Convert the playhead beats to samples
-        let buffer_end = playhead + self.audio_ctx.buffer_size;
-        let max_voices = self.audio_ctx.max_voices;
-
-        // Seek the event cursor to the current playhead position
-        self.seek_event_cursor(playhead);
-
-        for sample in playhead..buffer_end {
-            // Calculate the local sample in the buffer chunk
-            let local_sample = sample - playhead;
-            // Calculate the index of the first current voice
-            let current = local_sample * max_voices;
-
-            // Copy the voice data from the previous sample
-            self.propagate_voices(local_sample, max_voices, current);
-            // Increment age for each voices
-            self.increment_ages(current);
-
-            // Process the sequenced voices when playing
-            if is_playing {
-                self.consume_events_at_sample(sample, current);
-            }
-        }
-
-        // Copy the last voices
-        let last = (self.audio_ctx.buffer_size - 1) * max_voices;
-        self.last_voices
-            .clone_from_slice(&self.voice_buffer[last..last + max_voices]);
-
-        // Get a pointer to the voice buffer
-        let input_ptr = self.voice_buffer.as_ptr() as *const u8;
-        // Process the graph
-        self.graph
-            .process(&[input_ptr], &[self.local_buffer.as_mut_ptr() as *mut u8]);
-    }
-
-    fn get_local_buffer(&self) -> &[f32] {
-        &self.local_buffer
-    }
-
-    // --- ANY CASTING ---
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
-        self
     }
 }

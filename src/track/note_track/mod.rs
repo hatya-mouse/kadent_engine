@@ -1,13 +1,13 @@
 mod note;
 mod note_region;
-mod process;
+mod track_impl;
 mod voice_event;
 
 pub use note::{Note, NoteID};
 pub use note_region::NoteRegion;
 
 use crate::{
-    data_types::{AudioContext, Voice},
+    data_types::{AudioContext, MidiEvent, Voice},
     graph::Graph,
     node::builtin::{AudioOutputNode, NoteInputNode},
     track::RegionID,
@@ -95,5 +95,37 @@ impl NoteTrack {
 
     pub fn set_regions(&mut self, regions: HashMap<RegionID, NoteRegion>) {
         self.regions = regions;
+    }
+
+    // --- REALTIME MIDI ---
+
+    /// Receives live MIDI events and updates the voice state.
+    /// Must be called before process() so that changes take effect from sample 0 of the buffer.
+    pub fn pass_midi(&mut self, events: &[MidiEvent]) {
+        for event in events {
+            match event {
+                MidiEvent::NoteOn { pitch, velocity } => {
+                    // Allocate from the shared pool, stealing the oldest sequenced voice if full
+                    let voice_idx = self
+                        .free_voices
+                        .pop()
+                        .or_else(|| self.active_voices.pop_front().map(|(vi, _)| vi))
+                        .unwrap_or(0);
+                    self.live_voices.insert(*pitch, voice_idx);
+                    if let Some(v) = self.last_voices.get_mut(voice_idx) {
+                        *v = Voice::new(*pitch as f32, *velocity as f32 / 127.0, 0.0, true);
+                    }
+                }
+                MidiEvent::NoteOff { pitch } => {
+                    if let Some(voice_idx) = self.live_voices.remove(pitch) {
+                        self.free_voices.push(voice_idx);
+                        if let Some(v) = self.last_voices.get_mut(voice_idx) {
+                            v.is_active = false;
+                            v.age = 0.0;
+                        }
+                    }
+                }
+            }
+        }
     }
 }
