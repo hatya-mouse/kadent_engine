@@ -158,7 +158,7 @@ fn output_callback(
 
     device
         .build_output_stream(
-            &config,
+            config,
             move |data: &mut [f32], _| {
                 let mut current_playhead = state.playhead.load(Ordering::Relaxed);
 

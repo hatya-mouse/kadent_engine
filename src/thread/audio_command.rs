@@ -29,7 +29,7 @@ pub enum AudioResult {
 
 pub enum AudioError {
     GraphError(GraphError),
-    PlayStreamError(cpal::PlayStreamError),
+    PlayStreamError(cpal::Error),
     CommandFailed(AudioCommand),
 }
 
