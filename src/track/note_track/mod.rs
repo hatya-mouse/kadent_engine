@@ -33,6 +33,9 @@ pub struct NoteTrack {
     // Live MIDI voices: MIDI note number -> voice index
     live_voices: HashMap<u8, usize>,
 
+    // --- LOCAL OUTPUT BUFFER ---
+    local_buffer: Vec<f32>,
+
     // --- AUDIO CONTEXT ---
     audio_ctx: AudioContext,
 
@@ -270,7 +273,7 @@ impl Track for NoteTrack {
         self.graph.prepare()
     }
 
-    fn process(&mut self, is_playing: bool, playhead: usize, output: &mut [f32]) {
+    fn process_to_local_buffer(&mut self, is_playing: bool, playhead: usize) {
         // Convert the playhead beats to samples
         let buffer_end = playhead + self.audio_ctx.buffer_size;
         let max_voices = self.audio_ctx.max_voices;
@@ -382,7 +385,11 @@ impl Track for NoteTrack {
         let input_ptr = self.voice_buffer.as_ptr() as *const u8;
         // Process the graph
         self.graph
-            .process(&[input_ptr], &[output.as_mut_ptr() as *mut u8]);
+            .process(&[input_ptr], &[self.local_buffer.as_mut_ptr() as *mut u8]);
+    }
+
+    fn get_local_buffer(&self) -> &[f32] {
+        &self.local_buffer
     }
 
     // --- ANY CASTING ---

@@ -47,8 +47,11 @@ pub trait Track: Send + Any {
         tempo_map: &TempoMap,
     ) -> Result<(), GraphError>;
 
-    /// Processes the track with the given input and output pointer.
-    fn process(&mut self, is_playing: bool, playhead: usize, output: &mut [f32]);
+    /// Processes the track and writes the processed output to the local buffer.
+    fn process_to_local_buffer(&mut self, is_playing: bool, playhead: usize);
+
+    /// Returns the processed audio data in the local buffer.
+    fn get_local_buffer(&self) -> &[f32];
 
     /// Converts a reference to the track to any.
     fn as_any(&self) -> &dyn Any;

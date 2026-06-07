@@ -1,3 +1,5 @@
+use std::ptr::copy_nonoverlapping;
+
 use crate::{
     data_types::{AudioContext, TypeInfo},
     graph::error::NodeError,
@@ -44,6 +46,7 @@ impl Node for AudioOutputNode {
     }
 
     fn update(&mut self, audio_ctx: &AudioContext) {
+        // Multiply by 4 because each sample is a 32-bit float (4 bytes)
         self.data_type = TypeInfo::new(4 * audio_ctx.channels * audio_ctx.buffer_size, 4);
     }
 
@@ -54,13 +57,13 @@ impl Node for AudioOutputNode {
     fn process(&mut self, inputs: &[*const u8], outputs: &[*mut u8], _audio_ctx: &AudioContext) {
         for (input, output) in inputs.iter().zip(outputs.iter()) {
             unsafe {
-                // Add the input data to the output buffer
-                let len = self.data_type.size / 4;
-                let src = std::slice::from_raw_parts(*input as *const f32, len);
-                let dst = std::slice::from_raw_parts_mut(*output as *mut f32, len);
-                for (d, s) in dst.iter_mut().zip(src.iter()) {
-                    *d += *s;
-                }
+                // Write the input data to the output buffer
+                // Divide by 4 because each sample is a 32-bit float (4 bytes)
+                copy_nonoverlapping(
+                    *input as *const f32,
+                    *output as *mut f32,
+                    self.data_type.size / 4,
+                );
             }
         }
     }

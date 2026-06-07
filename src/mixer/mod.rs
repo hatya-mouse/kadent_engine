@@ -51,7 +51,7 @@ impl Mixer {
 
         // Call process function for every tracks
         for track in self.project.tracks.values_mut() {
-            track.process(is_playing, playhead, output);
+            track.process_to_local_buffer(is_playing, playhead);
         }
 
         // Clamp the output between -1.0 and 1.0 for safety
