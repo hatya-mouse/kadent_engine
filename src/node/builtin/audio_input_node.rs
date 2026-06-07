@@ -56,6 +56,7 @@ impl Node for AudioInputNode {
         for (input, output) in inputs.iter().zip(outputs.iter()) {
             unsafe {
                 // Copy the entire input to the output
+                // The buffer is of u8 type, so the size of the data type must be the same as the size of the buffer
                 copy_nonoverlapping(*input, *output, self.data_type.size);
             }
         }

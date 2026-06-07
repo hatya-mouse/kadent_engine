@@ -58,11 +58,8 @@ impl Node for AudioOutputNode {
         for (input, output) in inputs.iter().zip(outputs.iter()) {
             unsafe {
                 // Write the input data to the output buffer
-                copy_nonoverlapping(
-                    *input as *const f32,
-                    *output as *mut f32,
-                    self.data_type.size,
-                );
+                // The buffer is of u8 type, so the size of the data type must be the same as the size of the buffer
+                copy_nonoverlapping(*input, *output, self.data_type.size);
             }
         }
     }
