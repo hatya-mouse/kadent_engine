@@ -80,7 +80,7 @@ impl NoteTrack {
 
     /// Initializes the local buffer based on the buffer size.
     pub(super) fn init_local_buffer(&mut self) {
-        self.local_buffer = vec![0.0; self.audio_ctx.buffer_size];
+        self.local_buffer = vec![0.0; self.audio_ctx.buffer_size * self.audio_ctx.channels];
     }
 
     // --- PROCESS ---
