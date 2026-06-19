@@ -2,9 +2,8 @@ mod audio_command;
 mod audio_thread;
 mod export;
 mod handle;
-mod midi_thread;
 
-pub use audio_command::{AudioCommand, AudioError, AudioResult, MidiCommand};
+pub use audio_command::{AudioCommand, AudioError, AudioResult};
 pub use handle::AudioThreadHandle;
 
 use crate::{
@@ -23,7 +22,6 @@ impl AudioThread {
     pub fn spawn(audio_ctx: AudioContext, mut initial_project: Project) -> AudioThreadHandle {
         // MPSC channels to send commands to the processing threads from the host.
         let (audio_command_tx, audio_command_rx) = mpsc::channel();
-        let (midi_command_tx, midi_command_rx) = mpsc::channel();
         // MPSC channel to send the results back to the host.
         let (result_tx, result_rx) = mpsc::channel();
         // Shared playhead position using Arc and AtomicUsize for thread-safe access.
@@ -52,12 +50,9 @@ impl AudioThread {
             );
         });
 
-        // --- MIDI THREAD ---
-        thread::spawn(move || midi_thread::midi_thread(midi_command_rx, midi_producer));
-
         AudioThreadHandle {
             audio_command_tx,
-            midi_command_tx,
+            midi_producer,
             result_rx,
             vu_consumer,
             playhead,

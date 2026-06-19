@@ -3,7 +3,6 @@ use crate::{
     graph::error::GraphError,
     mixer::{Project, TrackID},
 };
-use midir::MidiInputPort;
 
 #[derive(Clone)]
 pub enum AudioCommand {
@@ -14,12 +13,6 @@ pub enum AudioCommand {
     ExportAudio(Box<Project>),
     ArmTrack(TrackID),
     DisarmTrack,
-}
-
-#[derive(Clone)]
-pub enum MidiCommand {
-    SetMidiPort(MidiInputPort),
-    DisconnectMidiPort,
 }
 
 #[derive(Clone)]
