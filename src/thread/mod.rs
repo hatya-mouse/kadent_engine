@@ -19,7 +19,10 @@ use std::{
 pub struct AudioThread;
 
 impl AudioThread {
-    pub fn spawn(audio_ctx: AudioContext, mut initial_project: Project) -> AudioThreadHandle {
+    pub fn spawn(
+        audio_ctx: AudioContext,
+        mut initial_project: Project,
+    ) -> (AudioThreadHandle, ringbuf::HeapProd<MidiEvent>) {
         // MPSC channels to send commands to the processing threads from the host.
         let (audio_command_tx, audio_command_rx) = mpsc::channel();
         // MPSC channel to send the results back to the host.
@@ -50,12 +53,14 @@ impl AudioThread {
             );
         });
 
-        AudioThreadHandle {
-            audio_command_tx,
+        (
+            AudioThreadHandle {
+                audio_command_tx,
+                result_rx,
+                vu_consumer,
+                playhead,
+            },
             midi_producer,
-            result_rx,
-            vu_consumer,
-            playhead,
-        }
+        )
     }
 }
