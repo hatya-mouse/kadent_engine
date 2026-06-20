@@ -394,7 +394,7 @@ dependencies = [
 
 [[package]]
 name = "kadent_engine"
-version = "0.3.21"
+version = "0.3.22"
 dependencies = [
  "cpal",
  "midir",
