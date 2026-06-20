@@ -1,10 +1,9 @@
-use cpal::Device;
-
 use crate::{
     data_types::Beats,
     graph::error::GraphError,
     mixer::{Project, TrackID},
 };
+use cpal::Device;
 
 #[derive(Clone)]
 pub enum AudioCommand {

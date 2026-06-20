@@ -41,6 +41,9 @@ pub(super) fn output_callback(
             config,
             move |data: &mut [f32], _| {
                 let Ok(mut ctx) = ctx.try_lock() else {
+                    println!(
+                        "Output callback skipped: Context is currently locked by another thread."
+                    );
                     return;
                 };
 
