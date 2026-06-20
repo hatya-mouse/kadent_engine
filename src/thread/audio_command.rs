@@ -1,3 +1,5 @@
+use cpal::Device;
+
 use crate::{
     data_types::Beats,
     graph::error::GraphError,
@@ -12,6 +14,7 @@ pub enum AudioCommand {
     UpdateProject(Box<Project>),
     ExportAudio(Box<Project>),
     ArmTrack(TrackID),
+    SetOutputDevice(Device),
     DisarmTrack,
 }
 

@@ -1,45 +1,29 @@
 use crate::{
     data_types::{AudioContext, MidiEvent},
-    mixer::{Mixer, Project, TrackID},
-    thread::{AudioCommand, AudioError, AudioResult, export},
-    track::note_track::NoteTrack,
+    mixer::{Mixer, Project},
+    thread::{
+        AudioCommand, AudioError, AudioResult, export,
+        output_callback::{OutputCallbackContext, OutputCallbackState, output_callback},
+    },
 };
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use ringbuf::{
-    SharedRb,
-    storage::Heap,
-    traits::{Consumer, Producer, Split},
-    wrap::caching::Caching,
-};
+use cpal::traits::{HostTrait, StreamTrait};
+use ringbuf::traits::{Producer, Split};
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicBool, AtomicUsize, Ordering},
     mpsc,
 };
 
-pub(super) struct OutputCallbackState {
-    pub(super) playhead: Arc<AtomicUsize>,
-    pub(super) is_playing: Arc<AtomicBool>,
-}
-
-struct OutputCallbackContext {
-    mixer: Mixer,
-    consumer: Caching<Arc<SharedRb<Heap<AudioCommand>>>, false, true>,
-    midi_consumer: ringbuf::HeapCons<MidiEvent>,
-    vu_producer: ringbuf::HeapProd<f32>,
-    pending_project: Arc<Mutex<Option<Project>>>,
-}
-
 pub(super) fn audio_thread(
     command_rx: mpsc::Receiver<AudioCommand>,
     result_tx: mpsc::Sender<Result<AudioResult, AudioError>>,
-    midi_consumer: ringbuf::HeapCons<MidiEvent>,
-    vu_producer: ringbuf::HeapProd<f32>,
+    midi_cons: ringbuf::HeapCons<MidiEvent>,
+    vu_prod: ringbuf::HeapProd<f32>,
     playhead: Arc<AtomicUsize>,
     audio_ctx: AudioContext,
     initial_project: Project,
 ) {
-    let (mut producer, consumer) = ringbuf::HeapRb::<AudioCommand>::new(64).split();
+    let (mut command_prod, command_cons) = ringbuf::HeapRb::<AudioCommand>::new(64).split();
 
     // Create a mixer with the given initial project
     let pending_project = Arc::new(Mutex::new(None));
@@ -65,24 +49,27 @@ pub(super) fn audio_thread(
         sample_rate: audio_ctx.sample_rate as u32,
         buffer_size: cpal::BufferSize::Fixed(audio_ctx.buffer_size as u32),
     };
+    let callback_ctx = Arc::new(Mutex::new(OutputCallbackContext {
+        mixer,
+        command_cons,
+        midi_cons,
+        vu_prod,
+        pending_project: pending_arc,
+    }));
     let callback_state = OutputCallbackState {
         playhead,
         is_playing: is_playing_clone,
     };
-    let stream = output_callback(
-        OutputCallbackContext {
-            mixer,
-            consumer,
-            midi_consumer,
-            vu_producer,
-            pending_project: pending_arc,
-        },
+    let mut stream = Some(output_callback(
+        callback_ctx.clone(),
         device,
         config,
-        callback_state,
-    );
+        callback_state.clone(),
+    ));
 
-    if let Err(err) = stream.play() {
+    if let Some(stream) = stream.as_ref()
+        && let Err(err) = stream.play()
+    {
         result_tx
             .send(Err(AudioError::PlayStreamError(err)))
             .unwrap();
@@ -96,13 +83,6 @@ pub(super) fn audio_thread(
             }
             AudioCommand::Pause => {
                 is_playing.store(false, Ordering::Release);
-            }
-            AudioCommand::Seek(_) => {
-                if let Err(command) = producer.try_push(command) {
-                    result_tx
-                        .send(Err(AudioError::CommandFailed(command)))
-                        .unwrap();
-                }
             }
             AudioCommand::UpdateProject(mut new_project) => {
                 // Increment the current generation by one to mark it as the latest
@@ -128,15 +108,26 @@ pub(super) fn audio_thread(
                 let result_tx = result_tx.clone();
                 export::spawn_export_thread(result_tx, *project);
             }
-            AudioCommand::ArmTrack(_) => {
-                if let Err(command) = producer.try_push(command) {
+            AudioCommand::SetOutputDevice(device) => {
+                stream.take();
+
+                stream = Some(output_callback(
+                    callback_ctx.clone(),
+                    device,
+                    config,
+                    callback_state.clone(),
+                ));
+
+                if let Some(stream) = stream.as_ref()
+                    && let Err(err) = stream.play()
+                {
                     result_tx
-                        .send(Err(AudioError::CommandFailed(command)))
+                        .send(Err(AudioError::PlayStreamError(err)))
                         .unwrap();
                 }
             }
-            AudioCommand::DisarmTrack => {
-                if let Err(command) = producer.try_push(command) {
+            AudioCommand::Seek(_) | AudioCommand::ArmTrack(_) | AudioCommand::DisarmTrack => {
+                if let Err(command) = command_prod.try_push(command) {
                     result_tx
                         .send(Err(AudioError::CommandFailed(command)))
                         .unwrap();
@@ -145,90 +136,5 @@ pub(super) fn audio_thread(
         }
     }
 
-    drop(stream);
-}
-
-fn output_callback(
-    mut context: OutputCallbackContext,
-    device: cpal::Device,
-    config: cpal::StreamConfig,
-    state: OutputCallbackState,
-) -> cpal::Stream {
-    let mut armed_track: Option<TrackID> = None;
-
-    device
-        .build_output_stream(
-            config,
-            move |data: &mut [f32], _| {
-                let mut current_playhead = state.playhead.load(Ordering::Relaxed);
-
-                // Get the project without blocking
-                if let Ok(mut pending) = context.pending_project.try_lock()
-                    && let Some(new_project) = pending.take()
-                {
-                    context.mixer.apply_project(new_project, current_playhead);
-                }
-
-                // Process all pending commands from the audio command ringbuf
-                while let Some(command) = context.consumer.try_pop() {
-                    match command {
-                        AudioCommand::Seek(target) => {
-                            let target_sample =
-                                context.mixer.project.tempo_map.beats_to_samples(target);
-                            current_playhead = target_sample;
-                            state.playhead.store(target_sample, Ordering::Relaxed);
-                            context.mixer.seek(target_sample);
-                        }
-                        AudioCommand::ArmTrack(track_id) => {
-                            armed_track = Some(track_id);
-                        }
-                        AudioCommand::DisarmTrack => {
-                            armed_track = None;
-                        }
-                        _ => {}
-                    }
-                }
-
-                // Drain MIDI events and pass them to the armed NoteTrack
-                let midi_events: Vec<MidiEvent> = context.midi_consumer.pop_iter().collect();
-                if !midi_events.is_empty()
-                    && let Some(track_id) = armed_track
-                    && let Some(track) = context.mixer.project.tracks.get_mut(&track_id)
-                    && let Some(note_track) = track.as_any_mut().downcast_mut::<NoteTrack>()
-                {
-                    note_track.pass_midi(&midi_events);
-                }
-
-                let is_playing = state.is_playing.load(Ordering::Relaxed);
-
-                // Process the audio and fill the output buffer
-                context.mixer.process(is_playing, current_playhead, data);
-
-                // Send the generated waveform data to the main thread for visualization
-                let channels = context.mixer.project.audio_ctx.channels;
-                for ch in 0..channels {
-                    let rms = (data
-                        .iter()
-                        .step_by(channels)
-                        .skip(ch)
-                        .map(|x| x * x)
-                        .sum::<f32>()
-                        / (data.len() / channels) as f32)
-                        .sqrt();
-                    context.vu_producer.try_push(rms).ok();
-                }
-
-                if is_playing {
-                    state.playhead.fetch_add(
-                        context.mixer.project.audio_ctx.buffer_size,
-                        Ordering::Relaxed,
-                    );
-                }
-            },
-            |err| {
-                eprintln!("An error occured on stream: {}", err);
-            },
-            None,
-        )
-        .expect("Failed to create a new stream")
+    stream.take();
 }
