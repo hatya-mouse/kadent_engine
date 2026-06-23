@@ -1,17 +1,17 @@
-use crate::data_types::Beats;
+use crate::data_types::Ticks;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct TempoEvent {
-    pub beat: Beats,
+    pub tick: Ticks,
     pub bpm: f64,
     pub sample_offset: usize,
 }
 
 impl PartialEq for TempoEvent {
     fn eq(&self, other: &Self) -> bool {
-        self.beat == other.beat
+        self.tick == other.tick
     }
 }
 
@@ -25,9 +25,9 @@ impl PartialOrd for TempoEvent {
 
 impl Ord for TempoEvent {
     fn cmp(&self, other: &Self) -> Ordering {
-        if self.beat > other.beat {
+        if self.tick > other.tick {
             Ordering::Greater
-        } else if self.beat == other.beat {
+        } else if self.tick == other.tick {
             Ordering::Equal
         } else {
             Ordering::Less
