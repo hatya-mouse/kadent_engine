@@ -1,5 +1,5 @@
 use crate::{
-    data_types::{AudioContext, Beats},
+    data_types::{AudioContext, Beats, Ticks},
     graph::error::GraphError,
     mixer::{TempoMap, track_id::TrackID},
     track::Track,
@@ -22,9 +22,9 @@ pub struct Project {
 
     // --- RANGE ---
     /// The start beats of the range to be exported or played.
-    pub range_start: Beats,
+    pub range_start: Ticks,
     /// The duration of the range to be exported or played.
-    pub range_duration: Beats,
+    pub range_duration: Ticks,
 
     // --- MISCS ---
     /// The next track ID for generating track IDs.
@@ -55,8 +55,8 @@ impl Project {
     pub fn with_tempo_map(
         audio_ctx: AudioContext,
         tempo_map: TempoMap,
-        range_start: Beats,
-        range_duration: Beats,
+        range_start: Ticks,
+        range_duration: Ticks,
     ) -> Self {
         Self {
             tracks: HashMap::new(),
