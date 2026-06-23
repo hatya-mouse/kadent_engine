@@ -98,8 +98,8 @@ impl TempoMap {
                 let tick_diff = (self.events[i].tick.0 - prev.tick.0) as u128;
                 // Calculate as u128 to avoid wrapping around to avoid calculation error
                 // when the tick difference is large enough
-                let samples = (tick_diff * self.audio_ctx.sample_rate as u128)
-                    / (60u128 * self.audio_ctx.resolution as u128 * prev.bpm as u128);
+                let samples = (60u128 * tick_diff * self.audio_ctx.sample_rate as u128)
+                    / (self.audio_ctx.resolution as u128 * prev.bpm as u128);
                 self.events[i].sample_offset = prev.sample_offset + samples as usize;
             }
         }
