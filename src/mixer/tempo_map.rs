@@ -120,12 +120,13 @@ impl TempoMap {
     pub fn ticks_to_samples(&self, ticks: Ticks) -> usize {
         let idx = self.events.partition_point(|e| e.tick <= ticks) - 1;
         let event = &self.events[idx];
-        let remaining_ticks = ticks - event.tick;
-        event.sample_offset
-            + (remaining_beats.0 / event.bpm * 60.0 * self.audio_ctx.sample_rate as f64) as usize
+        let remaining_ticks = (ticks.0 - event.tick.0) as u128;
+        let remaining_samples = (60u128 * remaining_ticks * self.audio_ctx.sample_rate as u128)
+            / (self.audio_ctx.resolution as u128 * event.bpm as u128);
+        event.sample_offset + remaining_samples as usize
     }
 
-    /// Convert samples to the Beats using the tempo map.
+    /// Converts samples to Beats using the tempo map.
     pub fn samples_to_beats(&self, samples: usize) -> Beats {
         // Find the last event before the sample
         let idx = self
@@ -142,5 +143,24 @@ impl TempoMap {
             (elapsed_samples * event.bpm) / (60.0 * self.audio_ctx.sample_rate as f64);
 
         event.beat + Beats(elapsed_beats)
+    }
+
+    /// Converts samples to Ticks using the tempo map.
+    pub fn samples_to_ticks(&self, samples: usize) -> Ticks {
+        // Find the last event before the sample
+        let idx = self
+            .events
+            .partition_point(|e| e.sample_offset <= samples)
+            .saturating_sub(1);
+        let event = &self.events[idx];
+
+        // Calculate the elapsed samples from the event's sample offset
+        let elapsed_samples = samples - event.sample_offset;
+        // Convert the elapsed samples to ticks
+        let elapsed_ticks =
+            (elapsed_samples as u128 * self.audio_ctx.resolution as u128 * event.bpm as u128)
+                / (60u128 * self.audio_ctx.sample_rate as u128);
+
+        event.tick + Ticks(elapsed_ticks as u64)
     }
 }
