@@ -14,8 +14,8 @@ pub(super) fn spawn_export_thread(
             return;
         }
 
-        let start_sample = project.tempo_map.beats_to_samples(project.range_start);
-        let end_sample = start_sample + project.tempo_map.beats_to_samples(project.range_duration);
+        let start_sample = project.tempo_map.ticks_to_samples(project.range_start);
+        let end_sample = start_sample + project.tempo_map.ticks_to_samples(project.range_duration);
         let buffer_size = project.audio_ctx.buffer_size;
         let channels = project.audio_ctx.channels;
 
