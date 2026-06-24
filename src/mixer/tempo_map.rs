@@ -6,7 +6,7 @@ use crate::{
 #[derive(Clone, Default)]
 pub struct TempoMap {
     /// The tempo events in the tempo map, sorted by their ticks.
-    pub(super) events: Vec<TempoEvent>,
+    pub events: Vec<TempoEvent>,
     audio_ctx: AudioContext,
 }
 

@@ -7,7 +7,7 @@ use crate::{
 /// Strech the audio data using the given tempo map, not preserving the pitch.
 pub fn tempo_strech(
     src_region: &AudioRegion,
-    target_sample_rate: usize,
+    target_sample_rate: u64,
     target_channels: usize,
     tempo_map: &TempoMap,
 ) -> Vec<f32> {
@@ -17,7 +17,7 @@ pub fn tempo_strech(
     // Get the first event on or before the region start beat
     let start_index = tempo_map
         .events
-        .partition_point(|e| e.ticks <= src_region.start)
+        .partition_point(|e| e.ticks() <= src_region.start)
         .saturating_sub(1);
     // Loop over the events until it surpasses the region end beat
     // (0: Start ticks, 1: End ticks, 2: BPM of the section)
@@ -25,7 +25,7 @@ pub fn tempo_strech(
     let mut i = start_index;
     while let Some(event) = tempo_map.events.get(i) {
         // Break if the event beat surpasses the region end beat
-        if event.ticks >= region_end {
+        if event.ticks() >= region_end {
             break;
         }
 
@@ -33,16 +33,16 @@ pub fn tempo_strech(
         let section_start = if i == start_index {
             src_region.start
         } else {
-            event.ticks
+            event.ticks()
         };
         let section_end = tempo_map
             .events
             .get(i + 1)
-            .map(|next| next.ticks.min(region_end))
+            .map(|next| next.ticks().min(region_end))
             .unwrap_or(region_end);
 
         // Push the section
-        sections.push((section_start, section_end, event.bpm));
+        sections.push((section_start, section_end, event.bpm()));
 
         i += 1;
     }
@@ -59,14 +59,14 @@ pub fn tempo_strech(
 
         // Get the slice from the data
         let section_data = &src_region.data[src_start_index..src_end_index];
-        let section_frames = src_end_sample - src_start_sample;
+        let section_samples = src_end_sample - src_start_sample;
 
         // Calculate the source sample rate to change the tempo
         let src_sample_rate =
-            (src_region.sample_rate as f64 * (src_region.base_bpm / section.2)) as usize;
+            (src_region.sample_rate as f64 * (src_region.base_bpm / section.2)) as u64;
         let resampled_data = resample_channels(
             section_data,
-            section_frames,
+            section_samples,
             src_sample_rate,
             src_region.channels as usize,
             target_sample_rate,
