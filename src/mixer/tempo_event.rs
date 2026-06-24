@@ -4,14 +4,14 @@ use std::cmp::Ordering;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct TempoEvent {
-    pub tick: Ticks,
+    pub ticks: Ticks,
     pub bpm: f64,
     pub sample_offset: usize,
 }
 
 impl PartialEq for TempoEvent {
     fn eq(&self, other: &Self) -> bool {
-        self.tick == other.tick
+        self.ticks == other.ticks
     }
 }
 
@@ -25,9 +25,9 @@ impl PartialOrd for TempoEvent {
 
 impl Ord for TempoEvent {
     fn cmp(&self, other: &Self) -> Ordering {
-        if self.tick > other.tick {
+        if self.ticks > other.ticks {
             Ordering::Greater
-        } else if self.tick == other.tick {
+        } else if self.ticks == other.ticks {
             Ordering::Equal
         } else {
             Ordering::Less

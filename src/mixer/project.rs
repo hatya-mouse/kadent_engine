@@ -1,5 +1,5 @@
 use crate::{
-    data_types::{AudioContext, Beats, Ticks},
+    data_types::{AudioContext, Ticks},
     graph::error::GraphError,
     mixer::{TempoMap, track_id::TrackID},
     track::Track,
@@ -38,8 +38,8 @@ impl Project {
     pub fn new(
         audio_ctx: AudioContext,
         bpm: f64,
-        range_start: Beats,
-        range_duration: Beats,
+        range_start: Ticks,
+        range_duration: Ticks,
     ) -> Self {
         Self {
             tracks: HashMap::new(),
@@ -113,8 +113,8 @@ impl Project {
     /// `start` and `duration` indicates the range to be processed.
     pub fn prepare(&mut self) -> Result<(), GraphError> {
         // Convert the start and duration beats to samples
-        let start_samples = self.tempo_map.beats_to_samples(self.range_start);
-        let duration_samples = self.tempo_map.beats_to_samples(self.range_duration);
+        let start_samples = self.tempo_map.ticks_to_samples(self.range_start);
+        let duration_samples = self.tempo_map.ticks_to_samples(self.range_duration);
 
         // Prepare the tracks one by one
         for track in self.tracks.values_mut() {

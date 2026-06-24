@@ -1,5 +1,5 @@
 use crate::{
-    data_types::{AudioContext, Beats, Ticks},
+    data_types::{AudioContext, Ticks},
     mixer::TempoEvent,
 };
 
@@ -16,7 +16,7 @@ impl TempoMap {
     pub fn new(audio_ctx: AudioContext, initial_bpm: f64) -> Self {
         Self {
             events: vec![TempoEvent {
-                tick: Ticks(0),
+                ticks: Ticks(0),
                 bpm: initial_bpm,
                 sample_offset: 0,
             }],
@@ -95,9 +95,9 @@ impl TempoMap {
                 self.events[i].sample_offset = 0;
             } else {
                 let prev = &self.events[i - 1];
-                let tick_diff = (self.events[i].tick.0 - prev.tick.0) as u128;
+                let tick_diff = (self.events[i].ticks.0 - prev.ticks.0) as u128;
                 // Calculate as u128 to avoid wrapping around to avoid calculation error
-                // when the tick difference is large enough
+                // when the ticks difference is large enough
                 let samples = (60u128 * tick_diff * self.audio_ctx.sample_rate as u128)
                     / (self.audio_ctx.resolution as u128 * prev.bpm as u128);
                 self.events[i].sample_offset = prev.sample_offset + samples as usize;
@@ -105,44 +105,16 @@ impl TempoMap {
         }
     }
 
-    // --- BEATS CONVERSION ---
-
-    /// Convert the Beats to samples using the tempo map.
-    pub fn beats_to_samples(&self, beats: Beats) -> usize {
-        let idx = self.events.partition_point(|e| e.beat <= beats) - 1;
-        let event = &self.events[idx];
-        let remaining_beats = beats - event.beat;
-        event.sample_offset
-            + (remaining_beats.0 / event.bpm * 60.0 * self.audio_ctx.sample_rate as f64) as usize
-    }
+    // --- TICKS CONVERSION ---
 
     /// Convert the Ticks to sampels using the tempo map.
     pub fn ticks_to_samples(&self, ticks: Ticks) -> usize {
-        let idx = self.events.partition_point(|e| e.tick <= ticks) - 1;
+        let idx = self.events.partition_point(|e| e.ticks <= ticks) - 1;
         let event = &self.events[idx];
-        let remaining_ticks = (ticks.0 - event.tick.0) as u128;
+        let remaining_ticks = (ticks.0 - event.ticks.0) as u128;
         let remaining_samples = (60u128 * remaining_ticks * self.audio_ctx.sample_rate as u128)
             / (self.audio_ctx.resolution as u128 * event.bpm as u128);
         event.sample_offset + remaining_samples as usize
-    }
-
-    /// Converts samples to Beats using the tempo map.
-    pub fn samples_to_beats(&self, samples: usize) -> Beats {
-        // Find the last event before the sample
-        let idx = self
-            .events
-            .partition_point(|e| e.sample_offset <= samples)
-            .saturating_sub(1);
-        let event = &self.events[idx];
-
-        // Calculate the elapsed samples from the event's beats
-        let elapsed_samples = (samples - event.sample_offset) as f64;
-
-        // Convert the elapsed samples to beats
-        let elapsed_beats =
-            (elapsed_samples * event.bpm) / (60.0 * self.audio_ctx.sample_rate as f64);
-
-        event.beat + Beats(elapsed_beats)
     }
 
     /// Converts samples to Ticks using the tempo map.
@@ -161,6 +133,6 @@ impl TempoMap {
             (elapsed_samples as u128 * self.audio_ctx.resolution as u128 * event.bpm as u128)
                 / (60u128 * self.audio_ctx.sample_rate as u128);
 
-        event.tick + Ticks(elapsed_ticks as u64)
+        event.ticks + Ticks(elapsed_ticks as u64)
     }
 }
