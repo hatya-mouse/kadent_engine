@@ -1,5 +1,5 @@
 use crate::{
-    data_types::{AudioContext, Beats},
+    data_types::{AudioContext, Ticks},
     graph::{Graph, error::GraphError},
     mixer::TempoMap,
     track::{
@@ -42,13 +42,13 @@ impl Track for AudioTrack {
 
     // --- REGION MODIFICATION ---
 
-    fn move_region(&mut self, region_id: &RegionID, new_start: Beats) {
+    fn move_region(&mut self, region_id: &RegionID, new_start: Ticks) {
         if let Some(region) = self.regions.get_mut(region_id) {
             region.start = new_start;
         }
     }
 
-    fn set_region_duration(&mut self, region_id: &RegionID, new_duration: Beats) {
+    fn set_region_duration(&mut self, region_id: &RegionID, new_duration: Ticks) {
         if let Some(region) = self.regions.get_mut(region_id) {
             region.duration = new_duration;
         }
@@ -87,7 +87,7 @@ impl Track for AudioTrack {
             );
 
             // Calculate the start sample index of the buffer
-            let region_start_index = tempo_map.beats_to_samples(region.start);
+            let region_start_index = tempo_map.ticks_to_samples(region.start);
 
             // Add the resampled samples
             let available = self.pre_processed.len().saturating_sub(region_start_index);

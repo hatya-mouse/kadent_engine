@@ -61,7 +61,7 @@ pub(super) fn output_callback(
                     match command {
                         AudioCommand::Seek(target) => {
                             let target_sample =
-                                ctx.mixer.project.tempo_map.beats_to_samples(target);
+                                ctx.mixer.project.tempo_map.ticks_to_samples(target);
                             current_playhead = target_sample;
                             state.playhead.store(target_sample, Ordering::Relaxed);
                             ctx.mixer.seek(target_sample);

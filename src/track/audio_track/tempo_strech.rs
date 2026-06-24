@@ -1,5 +1,5 @@
 use crate::{
-    data_types::Beats,
+    data_types::Ticks,
     mixer::TempoMap,
     track::audio_track::{AudioRegion, resampler::resample_channels},
 };
@@ -13,19 +13,19 @@ pub fn tempo_strech(
 ) -> Vec<f32> {
     let region_end = src_region.start + src_region.duration;
 
-    // Create a section list to split the data by tempo changes
+    // Create a section list by splitting the region into sections based on tempo change events
     // Get the first event on or before the region start beat
     let start_index = tempo_map
         .events
-        .partition_point(|e| e.beat <= src_region.start)
+        .partition_point(|e| e.ticks <= src_region.start)
         .saturating_sub(1);
     // Loop over the events until it surpasses the region end beat
-    // (0: Start beat, 1: End beat, 2: BPM of the section)
-    let mut sections: Vec<(Beats, Beats, f64)> = Vec::new();
+    // (0: Start ticks, 1: End ticks, 2: BPM of the section)
+    let mut sections: Vec<(Ticks, Ticks, f64)> = Vec::new();
     let mut i = start_index;
     while let Some(event) = tempo_map.events.get(i) {
         // Break if the event beat surpasses the region end beat
-        if event.beat >= region_end {
+        if event.ticks >= region_end {
             break;
         }
 
@@ -33,12 +33,12 @@ pub fn tempo_strech(
         let section_start = if i == start_index {
             src_region.start
         } else {
-            event.beat
+            event.ticks
         };
         let section_end = tempo_map
             .events
             .get(i + 1)
-            .map(|next| next.beat.min(region_end))
+            .map(|next| next.ticks.min(region_end))
             .unwrap_or(region_end);
 
         // Push the section
@@ -50,16 +50,9 @@ pub fn tempo_strech(
     // Loop over the sections and resample the audio
     let mut output_data = Vec::new();
     for section in sections {
-        // Calculate the start and the end index in the region data to get the slice
-        let src_start_beats = section.0 - src_region.start;
-        let src_end_beats = section.1 - src_region.start;
-        let src_start_sample = (src_start_beats.0 / src_region.base_bpm
-            * 60.0
-            * src_region.sample_rate as f64) as usize;
-        let src_end_sample = ((src_end_beats.0 / src_region.base_bpm
-            * 60.0
-            * src_region.sample_rate as f64) as usize)
-            .min(src_region.frames);
+        // Calculate the relative start and the end index
+        let src_start_sample = tempo_map.ticks_to_samples(section.0).min(src_region.frames);
+        let src_end_sample = tempo_map.ticks_to_samples(section.1).min(src_region.frames);
 
         let src_start_index = src_start_sample * src_region.channels as usize;
         let src_end_index = src_end_sample * src_region.channels as usize;

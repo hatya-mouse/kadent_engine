@@ -1,5 +1,5 @@
 use crate::{
-    data_types::Beats,
+    data_types::Ticks,
     graph::error::GraphError,
     mixer::{Project, TrackID},
 };
@@ -9,7 +9,7 @@ use cpal::Device;
 pub enum AudioCommand {
     Play,
     Pause,
-    Seek(Beats),
+    Seek(Ticks),
     UpdateProject(Box<Project>),
     ExportAudio(Box<Project>),
     ArmTrack(TrackID),

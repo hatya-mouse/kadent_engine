@@ -5,7 +5,7 @@ mod region_id;
 pub use region_id::RegionID;
 
 use crate::{
-    data_types::{AudioContext, Beats},
+    data_types::{AudioContext, Ticks},
     graph::{Graph, error::GraphError},
     mixer::TempoMap,
 };
@@ -25,10 +25,10 @@ pub trait Track: Send + Any {
     fn set_graph(&mut self, graph: Graph);
 
     /// Moves the audio region to the new start beats.
-    fn move_region(&mut self, region_id: &RegionID, new_start: Beats);
+    fn move_region(&mut self, region_id: &RegionID, new_start: Ticks);
 
     /// Changes the duration of the region.
-    fn set_region_duration(&mut self, region_id: &RegionID, new_duration: Beats);
+    fn set_region_duration(&mut self, region_id: &RegionID, new_duration: Ticks);
 
     /// Removes the region from the track.
     fn remove_region(&mut self, region_id: &RegionID);

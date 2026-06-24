@@ -5,7 +5,8 @@ use crate::{
 
 #[derive(Clone, Default)]
 pub struct TempoMap {
-    pub events: Vec<TempoEvent>,
+    /// The tempo events in the tempo map, sorted by their ticks.
+    pub(super) events: Vec<TempoEvent>,
     audio_ctx: AudioContext,
 }
 
@@ -15,11 +16,7 @@ impl TempoMap {
     /// Creates a new TempoMap.
     pub fn new(audio_ctx: AudioContext, initial_bpm: f64) -> Self {
         Self {
-            events: vec![TempoEvent {
-                ticks: Ticks(0),
-                bpm: initial_bpm,
-                sample_offset: 0,
-            }],
+            events: vec![TempoEvent::new(Ticks(0), initial_bpm, 0, &audio_ctx)],
             audio_ctx,
         }
     }
@@ -35,14 +32,13 @@ impl TempoMap {
 
     // --- TEMPO EVENT MANAGEMENT ---
 
-    /// Adds a new tempo event to the tempo map.
+    /// Adds a new tempo event to the tempo map, preserving the order of events.
     pub fn add_event(&mut self, event: TempoEvent) {
         // Insert the event while preserving the order
         let index = match self.events.binary_search(&event) {
             Ok(index) => {
                 // Overwrite the old event if the event with the same beat exists
-                self.events.remove(index);
-                self.events.insert(index, event);
+                self.events[index] = event;
                 index
             }
             Err(index) => {
@@ -110,11 +106,7 @@ impl TempoMap {
     /// Convert the Ticks to sampels using the tempo map.
     pub fn ticks_to_samples(&self, ticks: Ticks) -> usize {
         let idx = self.events.partition_point(|e| e.ticks <= ticks) - 1;
-        let event = &self.events[idx];
-        let remaining_ticks = (ticks.0 - event.ticks.0) as u128;
-        let remaining_samples = (60u128 * remaining_ticks * self.audio_ctx.sample_rate as u128)
-            / (self.audio_ctx.resolution as u128 * event.bpm as u128);
-        event.sample_offset + remaining_samples as usize
+        self.events[idx].ticks_to_samples(ticks)
     }
 
     /// Converts samples to Ticks using the tempo map.

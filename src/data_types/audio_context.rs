@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 pub struct AudioContext {
     pub resolution: u64,
     pub channels: usize,
-    pub sample_rate: usize,
+    pub sample_rate: u64,
     pub buffer_size: usize,
     pub max_voices: usize,
 }
