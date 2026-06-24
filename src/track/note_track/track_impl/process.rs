@@ -23,11 +23,11 @@ impl NoteTrack {
 
     /// Retrieves the notes from the regions and converts them to events.
     pub(super) fn retrieve_and_register_notes(&mut self, tempo_map: &TempoMap) {
-        for region in self.regions.values() {
+        for (region_id, region) in self.regions.iter() {
             let region_end = region.start + region.duration;
 
             // Calculate the start sample of the region
-            for note in region.notes.values() {
+            for (note_id, note) in region.notes.iter() {
                 let note_end = note.start + note.duration;
 
                 // Calculate the start and end sample of the note in the entire track
@@ -51,12 +51,14 @@ impl NoteTrack {
 
                 // Add the note start and end event to the events
                 self.events.push(VoiceEvent::new(
+                    (*region_id, *note_id),
                     absolute_start_sample,
                     note.pitch,
                     note.velocity,
                     true,
                 ));
                 self.events.push(VoiceEvent::new(
+                    (*region_id, *note_id),
                     absolute_end_sample,
                     note.pitch,
                     note.velocity,
@@ -155,23 +157,21 @@ impl NoteTrack {
                 continue;
             }
 
-            // Copy the frequency and velocity to avoid reference issues
-            let frequency = event.frequency;
+            // Copy the pitch and velocity to avoid reference issues
+            let pitch = event.pitch;
             let velocity = event.velocity;
+            let event_id = event.id;
 
             if event.is_note_on {
                 // Start playing the note from the sample
-                let voice_index = self.find_or_steal_voice(frequency);
+                let voice_index = self.find_or_steal_voice(pitch);
+                // Add the voice to the live voices
+                self.region_voices.insert(event_id, voice_index);
                 // Set the new voice to the voice buffer
-                self.voice_buffer[current + voice_index] =
-                    Voice::new(frequency, velocity, 0.0, true);
+                self.voice_buffer[current + voice_index] = Voice::new(pitch, velocity, 0.0, true);
             } else {
-                // Remove the active voice whose frequency matches the event frequency
-                if let Some(remove_index) = self
-                    .active_voices
-                    .iter()
-                    .position(|(_, freq)| *freq == event.frequency)
-                {
+                // Remove the active voice whose pitch matches the event pitch
+                if let Some(remove_index) = self.region_voices.remove(&event.id) {
                     // Remove the index from the active_voices and get the voice index
                     let (voice_index, _) = self.active_voices.remove(remove_index).unwrap();
                     // Mark the voice index as free
