@@ -57,7 +57,7 @@ impl TempoEvent {
     /// Converts the given ticks to samples using this `TempoEvent`'s bpm.
     #[inline]
     pub(super) fn ticks_to_samples(&self, target_ticks: Ticks) -> usize {
-        let remaining_ticks = (target_ticks.0 - self.ticks.0) as u64;
+        let remaining_ticks = target_ticks.0 - self.ticks.0;
         let remaining_samples =
             ((remaining_ticks as u128 * self.samples_per_tick_fp as u128) >> 32) as usize;
         self.sample_offset + remaining_samples
