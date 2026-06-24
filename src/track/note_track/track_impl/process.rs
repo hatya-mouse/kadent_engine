@@ -1,10 +1,9 @@
-use std::ptr::copy_nonoverlapping;
-
 use crate::{
     data_types::Voice,
     mixer::TempoMap,
     track::note_track::{NoteTrack, VoiceEvent},
 };
+use std::ptr::copy_nonoverlapping;
 
 impl NoteTrack {
     // --- VOICE GETTING ---
@@ -47,8 +46,8 @@ impl NoteTrack {
                 let clamped_note_end = absolute_note_end.min(region_end);
 
                 // Convert the start and end beats to sampels
-                let absolute_start_sample = tempo_map.beats_to_samples(clamped_note_start);
-                let absolute_end_sample = tempo_map.beats_to_samples(clamped_note_end);
+                let absolute_start_sample = tempo_map.ticks_to_samples(clamped_note_start);
+                let absolute_end_sample = tempo_map.ticks_to_samples(clamped_note_end);
 
                 // Add the note start and end event to the events
                 self.events.push(VoiceEvent::new(

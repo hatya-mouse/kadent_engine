@@ -1,4 +1,4 @@
-use crate::data_types::Beats;
+use crate::data_types::Ticks;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Default, Eq, Hash, PartialEq, Debug, Serialize, Deserialize)]
@@ -7,9 +7,9 @@ pub struct NoteID(pub usize);
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Note {
     /// Relative start position in the region in beats.
-    pub start: Beats,
+    pub start: Ticks,
     /// Duration of the note in beats.
-    pub duration: Beats,
+    pub duration: Ticks,
     /// Frequency of the note.
     pub pitch: f32,
     /// Velocity of the note.
@@ -17,7 +17,7 @@ pub struct Note {
 }
 
 impl Note {
-    pub fn new(start: Beats, duration: Beats, pitch: f32, velocity: f32) -> Self {
+    pub fn new(start: Ticks, duration: Ticks, pitch: f32, velocity: f32) -> Self {
         Self {
             start,
             duration,

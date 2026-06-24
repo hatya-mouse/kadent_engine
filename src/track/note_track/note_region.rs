@@ -1,5 +1,5 @@
 use crate::{
-    data_types::Beats,
+    data_types::Ticks,
     track::note_track::{Note, NoteID},
 };
 use serde::{Deserialize, Serialize};
@@ -7,8 +7,8 @@ use std::collections::HashMap;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct NoteRegion {
-    pub start: Beats,
-    pub duration: Beats,
+    pub start: Ticks,
+    pub duration: Ticks,
     pub notes: HashMap<NoteID, Note>,
 
     next_note_id: usize,
@@ -18,7 +18,7 @@ impl NoteRegion {
     // --- NEW ---
 
     /// Creates a new note region.
-    pub fn new(start: Beats, duration: Beats) -> Self {
+    pub fn new(start: Ticks, duration: Ticks) -> Self {
         Self {
             start,
             duration,
@@ -69,14 +69,14 @@ impl NoteRegion {
     // --- NOTE MODIFICATION ---
 
     /// Changes the note's start to the given start.
-    pub fn set_start(&mut self, id: &NoteID, start: Beats) {
+    pub fn set_start(&mut self, id: &NoteID, start: Ticks) {
         if let Some(note) = self.get_note_mut(id) {
             note.start = start;
         }
     }
 
     /// Sets the note's duration to the given duration.
-    pub fn set_duration(&mut self, id: &NoteID, duration: Beats) {
+    pub fn set_duration(&mut self, id: &NoteID, duration: Ticks) {
         if let Some(note) = self.get_note_mut(id) {
             note.duration = duration;
         }
@@ -99,12 +99,12 @@ impl NoteRegion {
     // --- NOTE DATA GETTING ---
 
     /// Returns the start beat of the note.
-    pub fn get_start(&self, id: &NoteID) -> Option<Beats> {
+    pub fn get_start(&self, id: &NoteID) -> Option<Ticks> {
         self.get_note(id).map(|note| note.start)
     }
 
     /// Returns the duration of the note.
-    pub fn get_duration(&self, id: &NoteID) -> Option<Beats> {
+    pub fn get_duration(&self, id: &NoteID) -> Option<Ticks> {
         self.get_note(id).map(|note| note.duration)
     }
 

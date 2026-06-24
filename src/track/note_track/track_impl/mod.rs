@@ -1,7 +1,7 @@
 mod process;
 
 use crate::{
-    data_types::{AudioContext, Beats, Voice},
+    data_types::{AudioContext, Ticks, Voice},
     graph::{Graph, error::GraphError},
     mixer::TempoMap,
     track::{RegionID, Track, note_track::NoteTrack},
@@ -32,13 +32,13 @@ impl Track for NoteTrack {
 
     // --- REGION MODIFICATION ---
 
-    fn move_region(&mut self, region_id: &RegionID, new_start: Beats) {
+    fn move_region(&mut self, region_id: &RegionID, new_start: Ticks) {
         if let Some(region) = self.regions.get_mut(region_id) {
             region.start = new_start;
         }
     }
 
-    fn set_region_duration(&mut self, region_id: &RegionID, new_duration: Beats) {
+    fn set_region_duration(&mut self, region_id: &RegionID, new_duration: Ticks) {
         if let Some(region) = self.regions.get_mut(region_id) {
             region.duration = new_duration;
         }
