@@ -30,9 +30,9 @@ pub struct NoteTrack {
     free_voices: Vec<usize>,
     last_voices: Vec<Voice>,
     voice_buffer: Vec<Voice>,
-    /// Live MIDI voices: MIDI note number -> voice index
+    /// Live MIDI voices: MIDI note number -> voice ID (usize)
     live_voices: HashMap<u8, usize>,
-    /// NoteRegion notes: (RegionID, NoteID) -> voice index
+    /// NoteRegion notes: (RegionID, NoteID) -> voice ID (usize)
     region_voices: HashMap<(RegionID, NoteID), usize>,
 
     // --- LOCAL OUTPUT BUFFER ---

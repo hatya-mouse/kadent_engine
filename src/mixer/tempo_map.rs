@@ -105,7 +105,18 @@ impl TempoMap {
 
     /// Convert the Ticks to sampels using the tempo map.
     pub fn ticks_to_samples(&self, ticks: Ticks) -> usize {
-        let idx = self.events.partition_point(|e| e.ticks <= ticks) - 1;
+        debug_assert!(
+            self.events.is_empty() || self.events[0].ticks.0 == 0,
+            "The first tempo event must be at tick 0"
+        );
+        if self.events.is_empty() || ticks.0 < self.events[0].ticks.0 {
+            return 0;
+        }
+
+        let idx = self
+            .events
+            .partition_point(|e| e.ticks <= ticks)
+            .saturating_sub(1);
         self.events[idx].ticks_to_samples(ticks)
     }
 
