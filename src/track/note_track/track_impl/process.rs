@@ -9,13 +9,18 @@ impl NoteTrack {
     // --- VOICE GETTING ---
 
     /// Returns the vacant voice index, or returns the index of the oldest voice.
-    pub(super) fn find_or_steal_voice(&mut self, new_freq: f32) -> usize {
-        let new_voice_index = self
-            .free_voices
-            .pop()
-            .or_else(|| self.active_voices.pop_front().map(|v| v.0))
-            .unwrap_or_default();
-        self.active_voices.push_back((new_voice_index, new_freq));
+    pub(super) fn find_or_steal_voice(&mut self) -> usize {
+        let new_voice_index = self.free_voices.pop().unwrap_or_else(|| {
+            // Drain stale entries from the front until we find one still active
+            loop {
+                let idx = self.active_voices.pop_front().unwrap_or(0);
+                if self.active_voice_set.remove(&idx) {
+                    break idx;
+                }
+            }
+        });
+        self.active_voices.push_back(new_voice_index);
+        self.active_voice_set.insert(new_voice_index);
         new_voice_index
     }
 
@@ -75,6 +80,7 @@ impl NoteTrack {
             vec![Voice::default(); self.audio_ctx.buffer_size * self.audio_ctx.max_voices];
         // Clear the active voices and the free voices
         self.active_voices.clear();
+        self.active_voice_set.clear();
         self.free_voices = (0..self.audio_ctx.max_voices).collect();
         self.last_voices = vec![Voice::default(); self.audio_ctx.max_voices];
     }
@@ -141,7 +147,7 @@ impl NoteTrack {
     /// Consumes the events at the current sample and updates the voice buffer accordingly.
     pub(super) fn consume_events_at_sample(&mut self, sample: usize, current: usize) {
         // Increment age for sequenced voices
-        for (index, _) in self.active_voices.iter() {
+        for &index in self.active_voice_set.iter() {
             self.voice_buffer[current + index].age += 1.0 / self.audio_ctx.sample_rate as f32;
         }
 
@@ -164,21 +170,19 @@ impl NoteTrack {
 
             if event.is_note_on {
                 // Start playing the note from the sample
-                let voice_index = self.find_or_steal_voice(pitch);
+                let voice_index = self.find_or_steal_voice();
                 // Add the voice to the live voices
                 self.region_voices.insert(event_id, voice_index);
                 // Set the new voice to the voice buffer
                 self.voice_buffer[current + voice_index] = Voice::new(pitch, velocity, 0.0, true);
             } else {
-                // Remove the voice from the region voices to get the voice index
-                if let Some(remove_index) = self.region_voices.remove(&event.id)
-                    // Remove the index from the active_voices and get the voice index
-                    && let Some((voice_index, _)) = self.active_voices.remove(remove_index)
-                {
-                    // Mark the voice index as free
-                    self.free_voices.push(voice_index);
-                    self.voice_buffer[current + voice_index].is_active = false;
-                    self.voice_buffer[current + voice_index].age = 0.0;
+                // Remove the voice from the region voices to get the pool index
+                if let Some(pool_idx) = self.region_voices.remove(&event.id) {
+                    // Remove from the set. The deque entry should be cleaned up lazily on steal
+                    self.active_voice_set.remove(&pool_idx);
+                    self.free_voices.push(pool_idx);
+                    self.voice_buffer[current + pool_idx].is_active = false;
+                    self.voice_buffer[current + pool_idx].age = 0.0;
                 }
             }
 

@@ -15,10 +15,12 @@ impl TempoMap {
 
     /// Creates a new TempoMap.
     pub fn new(audio_ctx: AudioContext, initial_bpm: f64) -> Self {
-        Self {
+        let mut map = Self {
             events: vec![TempoEvent::new(Ticks(0), initial_bpm, 0)],
             audio_ctx,
-        }
+        };
+        map.calculate_sample_offsets(0);
+        map
     }
 
     // --- AUDIO CONTEXT ---
@@ -86,6 +88,8 @@ impl TempoMap {
     /// Recalculates the offsets of the events after the given index,
     /// storing the results in the events vector.
     fn calculate_sample_offsets(&mut self, after_index: usize) {
+        let sample_rate = self.audio_ctx.sample_rate;
+        let resolution = self.audio_ctx.resolution;
         for i in after_index..self.events.len() {
             if i == 0 {
                 self.events[i].sample_offset = 0;
@@ -98,6 +102,8 @@ impl TempoMap {
                     / (self.audio_ctx.resolution as u128 * prev.bpm as u128);
                 self.events[i].sample_offset = prev.sample_offset + samples as usize;
             }
+            // Sync the fixed-point factor used by ticks_to_samples
+            self.events[i].update_factor(sample_rate, resolution);
         }
     }
 

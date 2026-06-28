@@ -12,7 +12,7 @@ use crate::{
     node::builtin::{AudioOutputNode, NoteInputNode},
     track::RegionID,
 };
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use voice_event::VoiceEvent;
 
 #[derive(Default, Clone)]
@@ -26,7 +26,11 @@ pub struct NoteTrack {
     // --- VOICE MANAGEMENT ---
     events: Vec<VoiceEvent>,
     event_cursor: usize,
-    active_voices: VecDeque<(usize, f32)>,
+    /// Ordering queue for LRU voice stealing. May contain already-freed pool indices
+    /// (lazy deletion); always cross-check with `active_voice_set` before use.
+    active_voices: VecDeque<usize>,
+    /// Set of pool indices that are currently active.
+    active_voice_set: HashSet<usize>,
     free_voices: Vec<usize>,
     last_voices: Vec<Voice>,
     voice_buffer: Vec<Voice>,
@@ -111,7 +115,7 @@ impl NoteTrack {
                     let voice_idx = self
                         .free_voices
                         .pop()
-                        .or_else(|| self.active_voices.pop_front().map(|(vi, _)| vi))
+                        .or_else(|| self.active_voices.pop_front())
                         .unwrap_or(0);
                     self.live_voices.insert(*pitch, voice_idx);
                     if let Some(v) = self.last_voices.get_mut(voice_idx) {

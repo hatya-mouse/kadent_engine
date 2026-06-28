@@ -60,6 +60,7 @@ impl Track for NoteTrack {
     fn seek(&mut self, playhead: usize) {
         // Clear all voices before seeking
         self.active_voices.clear();
+        self.active_voice_set.clear();
         self.live_voices.clear();
         self.free_voices = (0..self.audio_ctx.max_voices).collect();
         self.last_voices = vec![Voice::default(); self.audio_ctx.max_voices];
