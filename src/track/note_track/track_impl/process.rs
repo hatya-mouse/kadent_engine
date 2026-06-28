@@ -28,11 +28,11 @@ impl NoteTrack {
 
             // Calculate the start sample of the region
             for (note_id, note) in region.notes.iter() {
-                let note_end = note.start + note.duration;
+                // let note_end = note.start + note.duration;
 
                 // Calculate the start and end sample of the note in the entire track
                 let absolute_note_start = region.start + note.start;
-                let absolute_note_end = region.start + note_end;
+                let absolute_note_end = absolute_note_start + note.duration;
 
                 // Skip the note if it is outside the region
                 // Skip if absolute_note_start equals region_end to prevent NOTE OFF event
