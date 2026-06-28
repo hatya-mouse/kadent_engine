@@ -61,6 +61,7 @@ impl Track for NoteTrack {
         // Clear all voices before seeking
         self.active_voices.clear();
         self.active_voice_set.clear();
+        self.released_voice_set.clear();
         self.live_voices.clear();
         self.free_voices = (0..self.audio_ctx.max_voices).collect();
         self.last_voices = vec![Voice::default(); self.audio_ctx.max_voices];
@@ -117,6 +118,9 @@ impl Track for NoteTrack {
             if is_playing {
                 self.consume_events_at_sample(sample, first_voice_index);
             }
+
+            // Ramp gain for active and releasing voices
+            self.calculate_gains(first_voice_index);
         }
 
         // Copy the last voices

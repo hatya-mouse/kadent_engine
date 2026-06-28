@@ -21,6 +21,8 @@ impl NoteTrack {
                 }
             }
         });
+        // Cancel any in-progress fade-out if this slot is being reused
+        self.released_voice_set.remove(&new_voice_index);
         self.active_voices.push_back(new_voice_index);
         self.active_voice_set.insert(new_voice_index);
         new_voice_index
@@ -83,6 +85,7 @@ impl NoteTrack {
         // Clear the active voices and the free voices
         self.active_voices.clear();
         self.active_voice_set.clear();
+        self.released_voice_set.clear();
         self.free_voices = (0..self.audio_ctx.max_voices).collect();
         self.last_voices = vec![Voice::default(); self.audio_ctx.max_voices];
     }
@@ -167,6 +170,19 @@ impl NoteTrack {
             let gain = &mut self.voice_buffer[first_voice_index + idx].gain;
             *gain = (*gain + step).min(1.0);
         }
+
+        let releasing: Vec<usize> = self.released_voice_set.iter().copied().collect();
+        for idx in releasing {
+            let voice = &mut self.voice_buffer[first_voice_index + idx];
+            voice.gain -= step;
+            if voice.gain <= 0.0 {
+                voice.gain = 0.0;
+                voice.is_active = false;
+                voice.age = 0.0;
+                self.released_voice_set.remove(&idx);
+                self.free_voices.push(idx);
+            }
+        }
     }
 
     /// Consumes the events at the current sample and updates the voice buffer accordingly.
@@ -200,13 +216,10 @@ impl NoteTrack {
                 self.voice_buffer[first_voice_index + voice_index] =
                     Voice::new(pitch, velocity, 0.0, true);
             } else {
-                // Remove the voice from the region voices to get the pool index
+                // Move the voice to released_voice_set so gain fades 1→0 before freeing
                 if let Some(pool_idx) = self.region_voices.remove(&event.id) {
-                    // Remove from the set. The deque entry should be cleaned up lazily on steal
                     self.active_voice_set.remove(&pool_idx);
-                    self.free_voices.push(pool_idx);
-                    self.voice_buffer[first_voice_index + pool_idx].is_active = false;
-                    self.voice_buffer[first_voice_index + pool_idx].age = 0.0;
+                    self.released_voice_set.insert(pool_idx);
                 }
             }
 

@@ -30,7 +30,7 @@ pub struct NoteTrack {
     /// (lazy deletion); always cross-check with `active_voice_set` before use.
     active_voices: VecDeque<usize>,
     /// Released voices which needs to be faded out to reduce pop noises.
-    released_voices: Vec<usize>,
+    released_voice_set: HashSet<usize>,
     /// Set of pool indices that are currently active.
     active_voice_set: HashSet<usize>,
     /// Voice indices that are currently free and can be allocated for new notes.
@@ -39,10 +39,12 @@ pub struct NoteTrack {
     /// The size is equal to `max_voices`.
     last_voices: Vec<Voice>,
     /// Voices for the current buffer, whose size is equal to `buffer_size * max_voices`.
+    /// [Voice 0 of buffer 0, Voice 1 of buffer 0, ...,　Voice N of buffer 0,
+    /// Voice 0 of buffer 1, ..., Voice N of buffer M]
     voice_buffer: Vec<Voice>,
-    /// Live MIDI voices: MIDI note number -> voice ID (usize)
+    /// Live MIDI voices: MIDI note number -> voice index (usize)
     live_voices: HashMap<u8, usize>,
-    /// NoteRegion notes: (RegionID, NoteID) -> voice ID (usize)
+    /// NoteRegion notes: (RegionID, NoteID) -> voice index (usize)
     region_voices: HashMap<(RegionID, NoteID), usize>,
 
     // --- LOCAL OUTPUT BUFFER ---
