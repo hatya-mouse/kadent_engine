@@ -171,16 +171,10 @@ impl NoteTrack {
                 self.voice_buffer[current + voice_index] = Voice::new(pitch, velocity, 0.0, true);
             } else {
                 // Remove the voice from the region voices to get the voice index
-                if let Some(voice_index) = self.region_voices.remove(&event.id) {
-                    // Find the position of this voice_index in active_voices and remove it
-                    if let Some(pos) = self
-                        .active_voices
-                        .iter()
-                        .position(|(idx, _)| *idx == voice_index)
-                    {
-                        self.active_voices.remove(pos);
-                    }
-
+                if let Some(remove_index) = self.region_voices.remove(&event.id)
+                    // Remove the index from the active_voices and get the voice index
+                    && let Some((voice_index, _)) = self.active_voices.remove(remove_index)
+                {
                     // Mark the voice index as free
                     self.free_voices.push(voice_index);
                     self.voice_buffer[current + voice_index].is_active = false;
