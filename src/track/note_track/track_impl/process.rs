@@ -140,8 +140,16 @@ impl NoteTrack {
     }
 
     /// Updates the ages for each voices.
-    pub(super) fn increment_ages(&mut self, first_voice_index: usize) {
+    pub(super) fn increment_live_ages(&mut self, first_voice_index: usize) {
         for &index in self.live_voices.values() {
+            self.voice_buffer[first_voice_index + index].age +=
+                1.0 / self.audio_ctx.sample_rate as f32;
+        }
+    }
+
+    /// Updates the ages for each sequenced voices.
+    fn increment_sequenced_ages(&mut self, first_voice_index: usize) {
+        for &index in self.active_voice_set.iter() {
             self.voice_buffer[first_voice_index + index].age +=
                 1.0 / self.audio_ctx.sample_rate as f32;
         }
@@ -164,7 +172,7 @@ impl NoteTrack {
     /// Consumes the events at the current sample and updates the voice buffer accordingly.
     pub(super) fn consume_events_at_sample(&mut self, sample: usize, first_voice_index: usize) {
         // Increment age for sequenced voices
-        self.increment_ages(first_voice_index);
+        self.increment_sequenced_ages(first_voice_index);
 
         // Consume the events in this sample
         while let Some(event) = self.events.get(self.event_cursor) {

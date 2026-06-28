@@ -110,8 +110,8 @@ impl Track for NoteTrack {
 
             // Copy the voice data from the previous sample
             self.propagate_voices(local_sample, max_voices, first_voice_index);
-            // Increment age for each voices
-            // self.increment_ages(first_voice_index);
+            // Increment age for each live voices
+            self.increment_live_ages(first_voice_index);
 
             // Process the sequenced voices when playing
             if is_playing {
