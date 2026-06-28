@@ -165,6 +165,7 @@ impl NoteTrack {
         for &idx in self.active_voice_set.iter() {
             let gain = &mut self.voice_buffer[first_voice_index + idx].gain;
             *gain = (*gain + step).min(1.0);
+            eprintln!("voice[{}] gain = {}", idx, *gain); // ← 追加
         }
         for &idx in self.live_voices.values() {
             let gain = &mut self.voice_buffer[first_voice_index + idx].gain;
