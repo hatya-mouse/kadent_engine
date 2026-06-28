@@ -28,7 +28,7 @@ pub struct Project {
 
     // --- MISCS ---
     /// The next track ID for generating track IDs.
-    next_track_id: usize,
+    next_track_id: u64,
 }
 
 impl Project {
@@ -71,7 +71,7 @@ impl Project {
     // --- TRACK ID GENERATION ---
 
     /// Sets the next track ID for generating track IDs.
-    pub fn set_next_track_id(&mut self, next_id: usize) {
+    pub fn set_next_track_id(&mut self, next_id: u64) {
         self.next_track_id = next_id;
     }
 

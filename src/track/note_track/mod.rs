@@ -54,7 +54,7 @@ pub struct NoteTrack {
     audio_ctx: AudioContext,
 
     // --- MISC ---
-    next_region_id: usize,
+    next_region_id: u64,
 }
 
 impl NoteTrack {
@@ -91,7 +91,7 @@ impl NoteTrack {
 
     // --- REGION ADDITION ---
 
-    pub fn set_next_region_id(&mut self, next_id: usize) {
+    pub fn set_next_region_id(&mut self, next_id: u64) {
         self.next_region_id = next_id;
     }
 

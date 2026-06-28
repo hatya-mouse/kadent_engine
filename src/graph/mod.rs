@@ -31,7 +31,7 @@ pub struct Graph {
     audio_ctx: AudioContext,
 
     // --- MISC ---
-    next_node_id: usize,
+    next_node_id: u64,
 }
 
 impl Graph {
@@ -59,7 +59,7 @@ impl Graph {
     // --- ID GENERATION ---
 
     /// Sets the next node ID to the given value.
-    pub fn set_next_node_id(&mut self, next_node_id: usize) {
+    pub fn set_next_node_id(&mut self, next_node_id: u64) {
         self.next_node_id = next_node_id;
     }
 

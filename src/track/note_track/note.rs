@@ -2,7 +2,7 @@ use crate::data_types::Ticks;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Default, Eq, Hash, PartialEq, Debug, Serialize, Deserialize)]
-pub struct NoteID(pub usize);
+pub struct NoteID(pub u64);
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Note {

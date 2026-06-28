@@ -11,7 +11,7 @@ pub struct NoteRegion {
     pub duration: Ticks,
     pub notes: HashMap<NoteID, Note>,
 
-    next_note_id: usize,
+    next_note_id: u64,
 }
 
 impl NoteRegion {
@@ -30,7 +30,7 @@ impl NoteRegion {
     // --- NOTE ID GENERATION ---
 
     /// Sets the next note ID to the given ID.
-    pub fn set_next_note_id(&mut self, next_note_id: usize) {
+    pub fn set_next_note_id(&mut self, next_note_id: u64) {
         self.next_note_id = next_note_id;
     }
 
