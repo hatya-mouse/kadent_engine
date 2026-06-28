@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Default, Serialize, Deserialize)]
 pub struct AudioContext {
+    /// Represents how many ticks are in one beat.
     pub resolution: u64,
     pub channels: usize,
     pub sample_rate: u64,
