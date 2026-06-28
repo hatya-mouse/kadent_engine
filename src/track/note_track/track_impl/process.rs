@@ -5,6 +5,8 @@ use crate::{
 };
 use std::ptr::copy_nonoverlapping;
 
+const DECLICK_SAMPLES: usize = 64;
+
 impl NoteTrack {
     // --- VOICE GETTING ---
 
@@ -109,7 +111,7 @@ impl NoteTrack {
         &mut self,
         local_sample: usize,
         max_voices: usize,
-        current: usize,
+        first_voice_index: usize,
     ) {
         // If the current sample is the first sample in the buffer,
         // Copy from the last voices
@@ -130,7 +132,7 @@ impl NoteTrack {
             unsafe {
                 copy_nonoverlapping(
                     self.voice_buffer[previous..].as_ptr(),
-                    self.voice_buffer[current..].as_mut_ptr(),
+                    self.voice_buffer[first_voice_index..].as_mut_ptr(),
                     max_voices,
                 );
             }
@@ -138,18 +140,31 @@ impl NoteTrack {
     }
 
     /// Updates the ages for each voices.
-    pub(super) fn increment_ages(&mut self, current: usize) {
+    pub(super) fn increment_ages(&mut self, first_voice_index: usize) {
         for &index in self.live_voices.values() {
-            self.voice_buffer[current + index].age += 1.0 / self.audio_ctx.sample_rate as f32;
+            self.voice_buffer[first_voice_index + index].age +=
+                1.0 / self.audio_ctx.sample_rate as f32;
+        }
+    }
+
+    /// Calculates the gain for each voices to reduce pop noise.
+    pub(super) fn calculate_gains(&mut self, first_voice_index: usize) {
+        let step = 1.0 / DECLICK_SAMPLES as f32;
+
+        for &idx in self.active_voice_set.iter() {
+            let gain = &mut self.voice_buffer[first_voice_index + idx].gain;
+            *gain = (*gain + step).min(1.0);
+        }
+        for &idx in self.live_voices.values() {
+            let gain = &mut self.voice_buffer[first_voice_index + idx].gain;
+            *gain = (*gain + step).min(1.0);
         }
     }
 
     /// Consumes the events at the current sample and updates the voice buffer accordingly.
-    pub(super) fn consume_events_at_sample(&mut self, sample: usize, current: usize) {
+    pub(super) fn consume_events_at_sample(&mut self, sample: usize, first_voice_index: usize) {
         // Increment age for sequenced voices
-        for &index in self.active_voice_set.iter() {
-            self.voice_buffer[current + index].age += 1.0 / self.audio_ctx.sample_rate as f32;
-        }
+        self.increment_ages(first_voice_index);
 
         // Consume the events in this sample
         while let Some(event) = self.events.get(self.event_cursor) {
@@ -174,15 +189,16 @@ impl NoteTrack {
                 // Add the voice to the live voices
                 self.region_voices.insert(event_id, voice_index);
                 // Set the new voice to the voice buffer
-                self.voice_buffer[current + voice_index] = Voice::new(pitch, velocity, 0.0, true);
+                self.voice_buffer[first_voice_index + voice_index] =
+                    Voice::new(pitch, velocity, 0.0, true);
             } else {
                 // Remove the voice from the region voices to get the pool index
                 if let Some(pool_idx) = self.region_voices.remove(&event.id) {
                     // Remove from the set. The deque entry should be cleaned up lazily on steal
                     self.active_voice_set.remove(&pool_idx);
                     self.free_voices.push(pool_idx);
-                    self.voice_buffer[current + pool_idx].is_active = false;
-                    self.voice_buffer[current + pool_idx].age = 0.0;
+                    self.voice_buffer[first_voice_index + pool_idx].is_active = false;
+                    self.voice_buffer[first_voice_index + pool_idx].age = 0.0;
                 }
             }
 

@@ -29,10 +29,16 @@ pub struct NoteTrack {
     /// Ordering queue for LRU voice stealing. May contain already-freed pool indices
     /// (lazy deletion); always cross-check with `active_voice_set` before use.
     active_voices: VecDeque<usize>,
+    /// Released voices which needs to be faded out to reduce pop noises.
+    released_voices: Vec<usize>,
     /// Set of pool indices that are currently active.
     active_voice_set: HashSet<usize>,
+    /// Voice indices that are currently free and can be allocated for new notes.
     free_voices: Vec<usize>,
+    /// The state of voices at the last frame of the previous buffer.
+    /// The size is equal to `max_voices`.
     last_voices: Vec<Voice>,
+    /// Voices for the current buffer, whose size is equal to `buffer_size * max_voices`.
     voice_buffer: Vec<Voice>,
     /// Live MIDI voices: MIDI note number -> voice ID (usize)
     live_voices: HashMap<u8, usize>,

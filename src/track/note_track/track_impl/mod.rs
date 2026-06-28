@@ -104,17 +104,18 @@ impl Track for NoteTrack {
         for sample in playhead..buffer_end {
             // Calculate the local sample in the buffer chunk
             let local_sample = sample - playhead;
-            // Calculate the index of the first current voice
-            let current = local_sample * max_voices;
+            // Calculate the index of the first voice for the
+            // current sample in the voice buffer
+            let first_voice_index = local_sample * max_voices;
 
             // Copy the voice data from the previous sample
-            self.propagate_voices(local_sample, max_voices, current);
+            self.propagate_voices(local_sample, max_voices, first_voice_index);
             // Increment age for each voices
-            self.increment_ages(current);
+            // self.increment_ages(first_voice_index);
 
             // Process the sequenced voices when playing
             if is_playing {
-                self.consume_events_at_sample(sample, current);
+                self.consume_events_at_sample(sample, first_voice_index);
             }
         }
 
