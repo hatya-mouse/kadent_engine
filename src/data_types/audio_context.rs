@@ -1,7 +1,7 @@
 use crate::data_types::{Beats, Ticks};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Default, Serialize, Deserialize, Debug)]
 pub struct AudioContext {
     /// Represents how many ticks are in one beat.
     pub resolution: u64,
