@@ -5,7 +5,7 @@ use crate::{
 };
 use std::ptr::copy_nonoverlapping;
 
-const DECLICK_SAMPLES: usize = 32;
+const DECLICK_SAMPLES: usize = 64;
 
 impl NoteTrack {
     // --- VOICE GETTING ---
