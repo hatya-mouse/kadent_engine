@@ -75,8 +75,6 @@ impl Track for NoteTrack {
         _duration: usize,
         tempo_map: &TempoMap,
     ) -> Result<(), GraphError> {
-        println!("Resolution: {}", self.audio_ctx.resolution);
-
         // Clear the old events
         self.events.clear();
 
