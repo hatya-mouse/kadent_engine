@@ -125,6 +125,6 @@ impl TempoMap {
             (elapsed_samples as u128 * self.audio_ctx.resolution as u128 * event.bpm as u128)
                 / (60u128 * self.audio_ctx.sample_rate as u128);
 
-        event.ticks + Ticks(elapsed_ticks as u64)
+        event.ticks + Ticks(elapsed_ticks as i64)
     }
 }

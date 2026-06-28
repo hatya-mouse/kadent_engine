@@ -17,6 +17,6 @@ impl AudioContext {
     }
 
     pub fn beats_to_ticks(&self, beats: Beats) -> Ticks {
-        Ticks((beats.0 * self.resolution as f64) as u64)
+        Ticks((beats.0 * self.resolution as f64) as i64)
     }
 }
