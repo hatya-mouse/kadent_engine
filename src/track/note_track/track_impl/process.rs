@@ -5,7 +5,7 @@ use crate::{
 };
 use std::ptr::copy_nonoverlapping;
 
-const DECLICK_SAMPLES: usize = 0;
+const DECLICK_SAMPLES: usize = 32;
 
 impl NoteTrack {
     // --- VOICE GETTING ---
@@ -125,10 +125,14 @@ impl NoteTrack {
                 } else {
                     self.local_buffer[(event_local - 1) * channels + ch]
                 };
+                // Compute the step (discontinuity) at the event position and subtract
+                // a linearly decaying correction so the jump is spread over fade_len samples.
+                // This leaves the computed audio intact except for the correction ramp,
+                // and the residual at the end of the window shrinks as 1/(fade_len+1).
+                let step = self.local_buffer[event_local * channels + ch] - before_val;
                 for i in 0..fade_len {
-                    let t = (i + 1) as f32 / (fade_len + 1) as f32;
-                    self.local_buffer[(event_local + i) * channels + ch] = before_val * (1.0 - t)
-                        + self.local_buffer[(event_local + i) * channels + ch] * t;
+                    let decay = 1.0 - (i + 1) as f32 / (fade_len + 1) as f32;
+                    self.local_buffer[(event_local + i) * channels + ch] -= step * decay;
                 }
             }
         }
