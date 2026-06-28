@@ -5,8 +5,6 @@ use crate::{
 };
 use std::ptr::copy_nonoverlapping;
 
-const DECLICK_SAMPLES: usize = 64;
-
 impl NoteTrack {
     // --- VOICE GETTING ---
 
@@ -90,49 +88,6 @@ impl NoteTrack {
     /// Initializes the local buffer based on the buffer size.
     pub(super) fn init_local_buffer(&mut self) {
         self.local_buffer = vec![0.0; self.audio_ctx.buffer_size * self.audio_ctx.channels];
-        self.last_local_sample = vec![0.0; self.audio_ctx.channels];
-    }
-
-    /// Saves the last sample of the local buffer for use in the next buffer's de-click.
-    pub(super) fn save_last_local_sample(&mut self) {
-        let channels = self.audio_ctx.channels;
-        let buffer_size = self.audio_ctx.buffer_size;
-        for ch in 0..channels {
-            self.last_local_sample[ch] = self.local_buffer[(buffer_size - 1) * channels + ch];
-        }
-    }
-
-    /// Smooths discontinuities in local_buffer at positions where note events fired this buffer.
-    pub(super) fn apply_declick(&mut self, cursor_before: usize, playhead: usize) {
-        let channels = self.audio_ctx.channels;
-        let buffer_size = self.audio_ctx.buffer_size;
-
-        let Some(events) = self.events.get(cursor_before..self.event_cursor) else {
-            return;
-        };
-
-        // Collect local event positions to avoid borrow conflict when writing local_buffer
-        let local_event_samples: Vec<usize> = events
-            .iter()
-            .map(|e| e.sample_index.saturating_sub(playhead))
-            .filter(|&local| local < buffer_size)
-            .collect();
-
-        for local_event_sample in local_event_samples {
-            let fade_len = DECLICK_SAMPLES.min(buffer_size - local_event_sample);
-            for ch in 0..channels {
-                let before_val = if local_event_sample == 0 {
-                    self.last_local_sample.get(ch).copied().unwrap_or(0.0)
-                } else {
-                    self.local_buffer[(local_event_sample - 1) * channels + ch]
-                };
-                let step = self.local_buffer[local_event_sample * channels + ch] - before_val;
-                for i in 0..fade_len {
-                    let decay = 1.0 - (i + 1) as f32 / (fade_len + 1) as f32;
-                    self.local_buffer[(local_event_sample + i) * channels + ch] -= step * decay;
-                }
-            }
-        }
     }
 
     // --- PROCESS ---

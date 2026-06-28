@@ -8,6 +8,8 @@ pub struct Voice {
     pub age: f32,
     /// Whether the voice is active or not.
     pub is_active: bool,
+    /// The gain of the note, primarily used to fade in or out the note to reduce pop noise.
+    pub gain: f32,
 }
 
 impl Default for Voice {
@@ -17,6 +19,7 @@ impl Default for Voice {
             velocity: 0.0,
             age: 0.0,
             is_active: false,
+            gain: 0.0,
         }
     }
 }
@@ -28,6 +31,7 @@ impl Voice {
             velocity,
             age,
             is_active,
+            gain: 0.0,
         }
     }
 }

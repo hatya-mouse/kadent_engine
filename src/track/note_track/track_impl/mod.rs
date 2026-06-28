@@ -64,8 +64,6 @@ impl Track for NoteTrack {
         self.live_voices.clear();
         self.free_voices = (0..self.audio_ctx.max_voices).collect();
         self.last_voices = vec![Voice::default(); self.audio_ctx.max_voices];
-        // Reset de-click state since we jumped to a new position
-        self.last_local_sample = vec![0.0; self.audio_ctx.channels];
         // Recalculate the event cursor
         self.event_cursor = self.events.partition_point(|e| e.sample_index < playhead);
     }
@@ -102,8 +100,6 @@ impl Track for NoteTrack {
 
         // Seek the event cursor to the current playhead position
         self.seek_event_cursor(playhead);
-        // Remember cursor position before processing to identify events fired this buffer
-        let cursor_before = self.event_cursor;
 
         for sample in playhead..buffer_end {
             // Calculate the local sample in the buffer chunk
@@ -132,12 +128,6 @@ impl Track for NoteTrack {
         // Process the graph
         self.graph
             .process(&[input_ptr], &[self.local_buffer.as_mut_ptr() as *mut u8]);
-
-        // Smooth discontinuities at note event positions to remove clicks
-        if is_playing {
-            self.apply_declick(cursor_before, playhead);
-        }
-        self.save_last_local_sample();
     }
 
     fn get_local_buffer(&self) -> &[f32] {

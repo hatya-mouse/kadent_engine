@@ -41,7 +41,6 @@ pub struct NoteTrack {
 
     // --- LOCAL OUTPUT BUFFER ---
     local_buffer: Vec<f32>,
-    last_local_sample: Vec<f32>,
 
     // --- AUDIO CONTEXT ---
     audio_ctx: AudioContext,
