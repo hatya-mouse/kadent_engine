@@ -1,4 +1,4 @@
-use crate::data_types::{AudioContext, Ticks};
+use crate::data_types::Ticks;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
@@ -12,15 +12,13 @@ pub struct TempoEvent {
 }
 
 impl TempoEvent {
-    pub fn new(ticks: Ticks, bpm: f64, sample_offset: usize, audio_ctx: &AudioContext) -> Self {
-        let mut event = Self {
+    pub fn new(ticks: Ticks, bpm: f64, sample_offset: usize) -> Self {
+        Self {
             ticks,
             bpm,
             sample_offset,
             samples_per_tick_fp: 0,
-        };
-        event.update_factor(audio_ctx.sample_rate, audio_ctx.resolution);
-        event
+        }
     }
 
     pub fn ticks(&self) -> Ticks {

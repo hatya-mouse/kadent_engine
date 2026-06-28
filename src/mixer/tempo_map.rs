@@ -16,7 +16,7 @@ impl TempoMap {
     /// Creates a new TempoMap.
     pub fn new(audio_ctx: AudioContext, initial_bpm: f64) -> Self {
         Self {
-            events: vec![TempoEvent::new(Ticks(0), initial_bpm, 0, &audio_ctx)],
+            events: vec![TempoEvent::new(Ticks(0), initial_bpm, 0)],
             audio_ctx,
         }
     }
