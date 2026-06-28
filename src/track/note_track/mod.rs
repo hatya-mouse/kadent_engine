@@ -1,9 +1,11 @@
 mod note;
+mod note_modifier;
 mod note_region;
 mod track_impl;
 mod voice_event;
 
 pub use note::{Note, NoteID};
+pub use note_modifier::{NoteModifier, NoteModifierID};
 pub use note_region::NoteRegion;
 
 use crate::{
@@ -23,8 +25,12 @@ pub struct NoteTrack {
     // --- NOTE DATA ---
     regions: HashMap<RegionID, NoteRegion>,
 
+    // --- MODIFIERS ---
+    modifiers: HashMap<NoteModifierID, Box<dyn NoteModifier>>,
+
     // --- VOICE MANAGEMENT ---
     events: Vec<VoiceEvent>,
+    /// The index of the currently processing voice event.
     event_cursor: usize,
     /// Ordering queue for LRU voice stealing. May contain already-freed pool indices
     /// (lazy deletion); always cross-check with `active_voice_set` before use.
