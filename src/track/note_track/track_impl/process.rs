@@ -121,11 +121,6 @@ impl NoteTrack {
         }
     }
 
-    /// Initializes the local buffer based on the buffer size.
-    pub(super) fn init_local_buffer(&mut self) {
-        self.local_buffer = vec![0.0; self.audio_ctx.buffer_size * self.audio_ctx.channels];
-    }
-
     /// Updates the ages for each MIDI voices in `active_voices`.
     fn increment_midi_ages(&mut self) {
         let seconds_per_sample = 1f32 / self.audio_ctx.sample_rate as f32;

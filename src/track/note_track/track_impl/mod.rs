@@ -69,12 +69,15 @@ impl Track for NoteTrack {
     ) -> Result<(), GraphError> {
         // Pre-process the sequenced notes into processed notes
         self.pre_process_notes();
-        // Initialize the local buffer
-        self.init_local_buffer();
+
         // Clear the voice events and fill the active_voices vector with inactive voices
         self.voice_events.clear();
         self.active_voices = vec![Voice::default(); self.audio_ctx.max_voices];
         self.voice_sources = vec![None; self.audio_ctx.max_voices];
+        self.free_voices = (0..self.audio_ctx.max_voices).collect();
+
+        // Initialize the local buffer
+        self.local_buffer = vec![0.0; self.audio_ctx.buffer_size * self.audio_ctx.channels];
 
         // Prepare the graph
         self.graph.prepare()
