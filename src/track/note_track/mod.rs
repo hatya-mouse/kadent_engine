@@ -1,6 +1,7 @@
 mod note;
 mod note_modifier;
 mod note_region;
+mod processed_note;
 mod track_impl;
 mod voice_event;
 
@@ -12,7 +13,10 @@ use crate::{
     data_types::{AudioContext, MidiEvent, Voice},
     graph::Graph,
     node::builtin::{AudioOutputNode, NoteInputNode},
-    track::{RegionID, note_track::voice_event::VoiceEventID},
+    track::{
+        RegionID,
+        note_track::{processed_note::ProcessedNote, voice_event::VoiceEventID},
+    },
 };
 use std::{
     cmp::Reverse,
@@ -26,7 +30,11 @@ pub struct NoteTrack {
     graph: Graph,
 
     // --- NOTE DATA ---
+    /// The original note data, which is not affected by the modifiers.
     regions: HashMap<RegionID, NoteRegion>,
+    /// The processed note data, which has been processed by the modifiers.
+    /// This is sorted by the start time of the notes, and is used for generating voice events.
+    processed_notes: Vec<ProcessedNote>,
 
     // --- MODIFIERS ---
     modifiers: HashMap<NoteModifierID, Box<dyn NoteModifier>>,

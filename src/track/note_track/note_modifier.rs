@@ -10,7 +10,7 @@ pub trait NoteModifier: Send {
     fn clone_box(&self) -> Box<dyn NoteModifier>;
 
     /// Processes the Note using the modifier.
-    fn process(&mut self, input_notes: &[Note]) -> Vec<Note>;
+    fn process(&mut self, input_notes: Vec<Note>) -> Vec<Note>;
 }
 
 impl Clone for Box<dyn NoteModifier> {

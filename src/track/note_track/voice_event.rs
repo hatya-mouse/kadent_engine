@@ -1,18 +1,10 @@
-use crate::{
-    data_types::MidiEvent,
-    track::{RegionID, note_track::NoteID},
-};
+use crate::data_types::MidiEvent;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Eq, Hash, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Eq, Hash, PartialEq, Debug, Serialize, Deserialize)]
 pub enum VoiceEventID {
-    Midi {
-        pitch: u8,
-    },
-    SequencedNote {
-        region_id: RegionID,
-        note_id: NoteID,
-    },
+    Midi { pitch: u8 },
+    SequencedNote { id: usize },
 }
 
 #[derive(Debug, Clone)]

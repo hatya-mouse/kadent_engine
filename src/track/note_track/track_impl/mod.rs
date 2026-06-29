@@ -67,6 +67,8 @@ impl Track for NoteTrack {
         _duration: usize,
         _tempo_map: &TempoMap,
     ) -> Result<(), GraphError> {
+        // Pre-process the sequenced notes into processed notes
+        self.pre_process_notes();
         // Initialize the local buffer
         self.init_local_buffer();
         // Prepare the graph
@@ -88,7 +90,7 @@ impl Track for NoteTrack {
         self.midi_playhead = buffer_end;
 
         // Create voice events from sequenced notes
-        self.create_events_from_notes(tempo_map);
+        self.create_events_from_notes(playhead, tempo_map);
 
         for sample in playhead..buffer_end {
             // Convert voice events to voices
