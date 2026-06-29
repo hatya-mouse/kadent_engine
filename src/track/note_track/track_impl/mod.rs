@@ -1,7 +1,7 @@
 mod process;
 
 use crate::{
-    data_types::{AudioContext, Ticks, Voice},
+    data_types::{AudioContext, Ticks},
     graph::{Graph, error::GraphError},
     mixer::TempoMap,
     track::{RegionID, Track, note_track::NoteTrack},
@@ -57,17 +57,7 @@ impl Track for NoteTrack {
 
     // --- SEEKING ---
 
-    fn seek(&mut self, playhead: usize) {
-        // Clear all voices before seeking
-        self.active_voices.clear();
-        self.active_voice_set.clear();
-        self.released_voice_set.clear();
-        self.live_voices.clear();
-        self.free_voices = (0..self.audio_ctx.max_voices).collect();
-        self.last_voices = vec![Voice::default(); self.audio_ctx.max_voices];
-        // Recalculate the event cursor
-        self.event_cursor = self.events.partition_point(|e| e.sample_index < playhead);
-    }
+    fn seek(&mut self, _playhead: usize) {}
 
     // --- TRACK PROCESSING ---
 
@@ -75,26 +65,29 @@ impl Track for NoteTrack {
         &mut self,
         _start: usize,
         _duration: usize,
-        tempo_map: &TempoMap,
+        _tempo_map: &TempoMap,
     ) -> Result<(), GraphError> {
-        // Clear the old events
-        self.events.clear();
-
-        // Retrieve the notes from the regions and convert them to events
-        self.retrieve_and_register_notes(tempo_map);
-        // Sort the events
-        self.events.sort_unstable_by_key(|e| e.sample_index);
-
-        // Initialize the voices
-        self.init_voices();
         // Initialize the local buffer
         self.init_local_buffer();
-
         // Prepare the graph
         self.graph.prepare()
     }
 
     fn process_to_local_buffer(&mut self, is_playing: bool, playhead: usize) {
+        let mut voice_buffer =
+            Vec::with_capacity(self.audio_ctx.buffer_size * self.audio_ctx.max_voices);
+        let buffer_end = playhead + self.audio_ctx.buffer_size;
+
+        // Create voice events from MIDI input and sequenced notes
+
+        for sample in playhead..buffer_end {
+            // Convert voice events to voices
+            // Update active voics for this sample
+            self.consume_events_at_sample(sample);
+        }
+
+        // --------- OLD ----------
+
         // Convert the playhead beats to samples
         let buffer_end = playhead + self.audio_ctx.buffer_size;
         let max_voices = self.audio_ctx.max_voices;

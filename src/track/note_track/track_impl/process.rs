@@ -77,19 +77,6 @@ impl NoteTrack {
         }
     }
 
-    /// Initializes the voices.
-    pub(super) fn init_voices(&mut self) {
-        // Initialize the voice buffer
-        self.voice_buffer =
-            vec![Voice::default(); self.audio_ctx.buffer_size * self.audio_ctx.max_voices];
-        // Clear the active voices and the free voices
-        self.active_voices.clear();
-        self.active_voice_set.clear();
-        self.released_voice_set.clear();
-        self.free_voices = (0..self.audio_ctx.max_voices).collect();
-        self.last_voices = vec![Voice::default(); self.audio_ctx.max_voices];
-    }
-
     /// Initializes the local buffer based on the buffer size.
     pub(super) fn init_local_buffer(&mut self) {
         self.local_buffer = vec![0.0; self.audio_ctx.buffer_size * self.audio_ctx.channels];
@@ -142,89 +129,21 @@ impl NoteTrack {
         }
     }
 
-    /// Updates the ages for each voices.
-    pub(super) fn increment_live_ages(&mut self, first_voice_index: usize) {
-        for &index in self.live_voices.values() {
-            self.voice_buffer[first_voice_index + index].age +=
-                1.0 / self.audio_ctx.sample_rate as f32;
-        }
-    }
-
-    /// Updates the ages for each sequenced voices.
-    fn increment_sequenced_ages(&mut self, first_voice_index: usize) {
-        for &index in self.active_voice_set.iter() {
-            self.voice_buffer[first_voice_index + index].age +=
-                1.0 / self.audio_ctx.sample_rate as f32;
-        }
-    }
-
-    /// Calculates the gain for each voices to reduce pop noise.
-    pub(super) fn calculate_gains(&mut self, first_voice_index: usize) {
-        let step = 1.0 / DECLICK_SAMPLES as f32;
-
-        for &idx in self.active_voice_set.iter() {
-            let gain = &mut self.voice_buffer[first_voice_index + idx].gain;
-            *gain = (*gain + step).min(1.0);
-        }
-        for &idx in self.live_voices.values() {
-            let gain = &mut self.voice_buffer[first_voice_index + idx].gain;
-            *gain = (*gain + step).min(1.0);
-        }
-
-        let releasing: Vec<usize> = self.released_voice_set.iter().copied().collect();
-        for idx in releasing {
-            let voice = &mut self.voice_buffer[first_voice_index + idx];
-            voice.gain -= step;
-            if voice.gain <= 0.0 {
-                voice.gain = 0.0;
-                voice.is_active = false;
-                voice.age = 0.0;
-                self.released_voice_set.remove(&idx);
-                self.free_voices.push(idx);
+    /// Updates the ages for each active voices.
+    fn increment_active_ages(&mut self) {
+        let seconds_per_sample = 1f32 / self.audio_ctx.sample_rate as f32;
+        for active_voice in self.active_voices.iter_mut() {
+            if let Some(active_voice) = active_voice {
+                active_voice.age += seconds_per_sample;
             }
         }
     }
 
-    /// Consumes the events at the current sample and updates the voice buffer accordingly.
-    pub(super) fn consume_events_at_sample(&mut self, sample: usize, first_voice_index: usize) {
-        // Increment age for sequenced voices
-        self.increment_sequenced_ages(first_voice_index);
+    /// Consumes the events at the current sample and updates the active voices.
+    pub(super) fn consume_events_at_sample(&mut self, sample: usize) {
+        // Increment ages for each active voices
+        self.increment_active_ages();
 
-        // Consume the events in this sample
-        while let Some(event) = self.events.get(self.event_cursor) {
-            // Break if the event is in future
-            if event.sample_index > sample {
-                break;
-            }
-            // If the event is the past event, skip the event
-            if event.sample_index < sample {
-                self.event_cursor += 1;
-                continue;
-            }
-
-            // Copy the pitch and velocity to avoid reference issues
-            let pitch = event.pitch;
-            let velocity = event.velocity;
-            let event_id = event.id;
-
-            if event.is_note_on {
-                // Start playing the note from the sample
-                let voice_index = self.find_or_steal_voice();
-                // Add the voice to the live voices
-                self.region_voices.insert(event_id, voice_index);
-                // Set the new voice to the voice buffer
-                self.voice_buffer[first_voice_index + voice_index] =
-                    Voice::new(pitch, velocity, 0.0, true);
-            } else {
-                // Move the voice to released_voice_set so gain fades 1→0 before freeing
-                if let Some(pool_idx) = self.region_voices.remove(&event.id) {
-                    self.active_voice_set.remove(&pool_idx);
-                    self.released_voice_set.insert(pool_idx);
-                }
-            }
-
-            // Increment the event cursor
-            self.event_cursor += 1;
-        }
+        // Consume event and create events
     }
 }

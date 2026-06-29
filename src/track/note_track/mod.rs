@@ -14,7 +14,7 @@ use crate::{
     node::builtin::{AudioOutputNode, NoteInputNode},
     track::RegionID,
 };
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BinaryHeap, HashMap, VecDeque};
 use voice_event::VoiceEvent;
 
 #[derive(Default, Clone)]
@@ -28,30 +28,13 @@ pub struct NoteTrack {
     // --- MODIFIERS ---
     modifiers: HashMap<NoteModifierID, Box<dyn NoteModifier>>,
 
-    // --- VOICE MANAGEMENT ---
-    events: Vec<VoiceEvent>,
-    /// The index of the currently processing voice event.
-    event_cursor: usize,
-    /// Ordering queue for LRU voice stealing. May contain already-freed pool indices
-    /// (lazy deletion); always cross-check with `active_voice_set` before use.
-    active_voices: VecDeque<usize>,
-    /// Released voices which needs to be faded out to reduce pop noises.
-    released_voice_set: HashSet<usize>,
-    /// Set of pool indices that are currently active.
-    active_voice_set: HashSet<usize>,
-    /// Voice indices that are currently free and can be allocated for new notes.
-    free_voices: Vec<usize>,
-    /// The state of voices at the last frame of the previous buffer.
-    /// The size is equal to `max_voices`.
-    last_voices: Vec<Voice>,
-    /// Voices for the current buffer, whose size is equal to `buffer_size * max_voices`.
-    /// [Voice 0 of buffer 0, Voice 1 of buffer 0, ...,　Voice N of buffer 0,
-    /// Voice 0 of buffer 1, ..., Voice N of buffer M]
-    voice_buffer: Vec<Voice>,
-    /// Live MIDI voices: MIDI note number -> voice index (usize)
-    live_voices: HashMap<u8, usize>,
-    /// NoteRegion notes: (RegionID, NoteID) -> voice index (usize)
-    region_voices: HashMap<(RegionID, NoteID), usize>,
+    // --- EVENT -> VOICE PROCESSING ---
+    /// Voice Events such as NoteOn and NoteOff.
+    voice_events: BinaryHeap<VoiceEvent>,
+    /// Active voices in the current frame.
+    active_voices: Vec<Option<Voice>>,
+    /// Indices in `active_voices` where the corresponding slots are vacant and available for new voice.
+    free_voices: VecDeque<usize>,
 
     // --- LOCAL OUTPUT BUFFER ---
     local_buffer: Vec<f32>,
