@@ -88,6 +88,8 @@ impl Track for NoteTrack {
             Vec::with_capacity(self.audio_ctx.buffer_size * self.audio_ctx.max_voices);
         let buffer_end = playhead + self.audio_ctx.buffer_size;
 
+        println!("Playhead: {}", playhead);
+
         // Set the midi_playhead to the start index of the next buffer
         // because the next buffer will start processing from that point
         self.midi_playhead = buffer_end;
