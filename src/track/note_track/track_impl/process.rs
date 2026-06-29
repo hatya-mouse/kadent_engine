@@ -89,6 +89,8 @@ impl NoteTrack {
         let playhead_ticks = tempo_map.samples_to_ticks(playhead);
         let buffer_end_ticks = tempo_map.samples_to_ticks(buffer_end);
 
+        println!("----------------BUFFER----------------");
+
         // Calculate the start sample of the region
         for note in self.processed_notes.iter() {
             // Skip the note if it is not in the currently processing buffer
