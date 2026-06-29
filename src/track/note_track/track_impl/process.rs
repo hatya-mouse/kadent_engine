@@ -1,4 +1,5 @@
 use crate::{
+    data_types::Ticks,
     mixer::TempoMap,
     track::note_track::{
         Note, NoteTrack, ProcessedNote, VoiceEvent,
@@ -17,10 +18,22 @@ impl NoteTrack {
         // Convert the local start Ticks to global Ticks by adding the start of the region
         for (_, region) in self.regions.iter() {
             for (_, note) in region.notes.iter() {
-                let absolute_start = note.start + region.start;
+                // If the start of the note is after the end of the region
+                // ...or if the end of the note is before the start of the region, skip it
+                let note_end = note.start + note.duration;
+                if note.start > region.duration || note_end < Ticks(0) {
+                    continue;
+                }
+
+                // If the start of the note is before the start of the region, clamp it
+                let clamped_start = note.start.max(Ticks(0));
+                let absolute_start = clamped_start + region.start;
+                // If the end of the note is after the end of the region, clamp it
+                let clamped_duration = note_end.min(region.duration) - clamped_start;
+
                 notes.push(Note {
                     start: absolute_start,
-                    duration: note.duration,
+                    duration: clamped_duration,
                     pitch: note.pitch,
                     velocity: note.velocity,
                     modifiers: note.modifiers.clone(),
