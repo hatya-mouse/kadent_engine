@@ -141,13 +141,18 @@ impl NoteTrack {
         }
 
         // If not, find the oldest active voice and return its index
-        self.active_voices
+        let stolen_index = self
+            .active_voices
             .iter()
             .enumerate()
             .filter(|(_, v)| v.is_active)
             .max_by(|(_, a), (_, b)| a.age.partial_cmp(&b.age).unwrap())
             .map(|(i, _)| i)
-            .unwrap_or(0)
+            .unwrap_or(0);
+        // Remove the old voice from the event_id_to_index map
+        self.event_id_to_index.retain(|_, &mut v| v != stolen_index);
+
+        stolen_index
     }
 
     /// Marks the given voice index free.
