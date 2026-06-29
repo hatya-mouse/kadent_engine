@@ -118,8 +118,7 @@ pub(super) fn output_callback(
                         .fetch_add(ctx.mixer.project.audio_ctx.buffer_size, Ordering::Relaxed);
                 }
 
-                // 100コールバックごとに処理時間を報告する
-                if callback_count % 100 == 0 {
+                if callback_count.is_multiple_of(100) {
                     let audio_ctx = &ctx.mixer.project.audio_ctx;
                     let deadline_us =
                         audio_ctx.buffer_size as f64 / audio_ctx.sample_rate as f64 * 1_000_000.0;
