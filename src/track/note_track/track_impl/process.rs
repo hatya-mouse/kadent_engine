@@ -128,7 +128,7 @@ impl NoteTrack {
             .iter_mut()
             .zip(self.voice_sources.iter())
             .for_each(|(voice, source)| {
-                if matches!(source, Some(VoiceSource::RealtimeMidi)) {
+                if voice.is_active && matches!(source, Some(VoiceSource::RealtimeMidi)) {
                     voice.age += seconds_per_sample;
                 }
             });
@@ -141,7 +141,7 @@ impl NoteTrack {
             .iter_mut()
             .zip(self.voice_sources.iter())
             .for_each(|(voice, source)| {
-                if matches!(source, Some(VoiceSource::SequencedNote)) {
+                if voice.is_active && matches!(source, Some(VoiceSource::SequencedNote)) {
                     voice.age += seconds_per_sample;
                 }
             });
