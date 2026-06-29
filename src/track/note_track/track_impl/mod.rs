@@ -73,7 +73,7 @@ impl Track for NoteTrack {
         self.init_local_buffer();
         // Clear the voice events and fill the active_voices vector with inactive voices
         self.voice_events.clear();
-        self.active_voices = vec![Voice::inactive(); self.audio_ctx.max_voices];
+        self.active_voices = vec![Voice::default(); self.audio_ctx.max_voices];
 
         // Prepare the graph
         self.graph.prepare()
@@ -103,8 +103,6 @@ impl Track for NoteTrack {
             // Extend the voice buffer with the current active voices
             voice_buffer.extend(self.active_voices.clone());
         }
-
-        println!("Active voices: {:#?}", self.active_voices);
 
         // Get a pointer to the voice buffer
         let input_ptr = voice_buffer.as_ptr() as *const u8;

@@ -19,7 +19,7 @@ impl Default for Voice {
             velocity: 0.0,
             age: 0.0,
             is_active: false,
-            gain: 0.0,
+            gain: 1.0,
         }
     }
 }
@@ -31,17 +31,7 @@ impl Voice {
             velocity,
             age,
             is_active,
-            gain: 0.0,
-        }
-    }
-
-    pub fn inactive() -> Self {
-        Self {
-            pitch: 0.0,
-            velocity: 0.0,
-            age: 0.0,
-            is_active: false,
-            gain: 0.0,
+            gain: 1.0,
         }
     }
 }
