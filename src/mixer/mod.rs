@@ -52,7 +52,7 @@ impl Mixer {
             .values_mut()
             .par_bridge()
             .for_each(|track| {
-                track.process_to_local_buffer(is_playing, playhead);
+                track.process_to_local_buffer(is_playing, playhead, &self.project.tempo_map);
             });
 
         // Add the output of each tracks to the main output buffer

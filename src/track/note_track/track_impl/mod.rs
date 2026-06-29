@@ -73,56 +73,34 @@ impl Track for NoteTrack {
         self.graph.prepare()
     }
 
-    fn process_to_local_buffer(&mut self, is_playing: bool, playhead: usize) {
+    fn process_to_local_buffer(
+        &mut self,
+        _is_playing: bool,
+        playhead: usize,
+        tempo_map: &TempoMap,
+    ) {
         let mut voice_buffer =
             Vec::with_capacity(self.audio_ctx.buffer_size * self.audio_ctx.max_voices);
         let buffer_end = playhead + self.audio_ctx.buffer_size;
 
-        // Create voice events from MIDI input and sequenced notes
+        // Set the midi_playhead to the start index of the next buffer
+        // because the next buffer will start processing from that point
+        self.midi_playhead = buffer_end;
+
+        // Create voice events from sequenced notes
+        self.create_events_from_notes(tempo_map);
 
         for sample in playhead..buffer_end {
             // Convert voice events to voices
             // Update active voics for this sample
             self.consume_events_at_sample(sample);
+
+            // Extend the voice buffer with the current active voices
+            voice_buffer.extend(self.active_voices.clone());
         }
-
-        // --------- OLD ----------
-
-        // Convert the playhead beats to samples
-        let buffer_end = playhead + self.audio_ctx.buffer_size;
-        let max_voices = self.audio_ctx.max_voices;
-
-        // Seek the event cursor to the current playhead position
-        self.seek_event_cursor(playhead);
-
-        for sample in playhead..buffer_end {
-            // Calculate the local sample in the buffer chunk
-            let local_sample = sample - playhead;
-            // Calculate the index of the first voice for the
-            // current sample in the voice buffer
-            let first_voice_index = local_sample * max_voices;
-
-            // Copy the voice data from the previous sample
-            self.propagate_voices(local_sample, max_voices, first_voice_index);
-            // Increment age for each live voices
-            self.increment_live_ages(first_voice_index);
-
-            // Process the sequenced voices when playing
-            if is_playing {
-                self.consume_events_at_sample(sample, first_voice_index);
-            }
-
-            // Ramp gain for active and releasing voices
-            self.calculate_gains(first_voice_index);
-        }
-
-        // Copy the last voices
-        let last = (self.audio_ctx.buffer_size - 1) * max_voices;
-        self.last_voices
-            .clone_from_slice(&self.voice_buffer[last..last + max_voices]);
 
         // Get a pointer to the voice buffer
-        let input_ptr = self.voice_buffer.as_ptr() as *const u8;
+        let input_ptr = voice_buffer.as_ptr() as *const u8;
         // Process the graph
         self.graph
             .process(&[input_ptr], &[self.local_buffer.as_mut_ptr() as *mut u8]);

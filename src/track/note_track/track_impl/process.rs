@@ -1,5 +1,6 @@
+use std::cmp::Reverse;
+
 use crate::{
-    data_types::Voice,
     mixer::TempoMap,
     track::note_track::{
         NoteTrack, VoiceEvent,
@@ -7,13 +8,11 @@ use crate::{
     },
 };
 
-const DECLICK_SAMPLES: usize = 512;
-
 impl NoteTrack {
     // --- PREPARATION ---
 
     /// Retrieves the notes from the regions and converts them to events.
-    pub(super) fn retrieve_and_register_notes(&mut self, tempo_map: &TempoMap) {
+    pub(super) fn create_events_from_notes(&mut self, tempo_map: &TempoMap) {
         for (region_id, region) in self.regions.iter() {
             let region_end = region.start + region.duration;
 
@@ -41,20 +40,23 @@ impl NoteTrack {
                 let absolute_end_sample = tempo_map.ticks_to_samples(clamped_note_end);
 
                 // Add the note start and end event to the events
-                self.events.push(VoiceEvent::new(
-                    (*region_id, *note_id),
+                let voice_id = VoiceEventID::SequencedNote {
+                    region_id: *region_id,
+                    note_id: *note_id,
+                };
+                self.voice_events.push(Reverse(VoiceEvent::new(
                     absolute_start_sample,
-                    note.pitch,
-                    note.velocity,
-                    true,
-                ));
-                self.events.push(VoiceEvent::new(
-                    (*region_id, *note_id),
+                    VoiceEventKind::NoteOn {
+                        pitch: note.pitch,
+                        velocity: note.velocity,
+                    },
+                    voice_id.clone(),
+                )));
+                self.voice_events.push(Reverse(VoiceEvent::new(
                     absolute_end_sample,
-                    note.pitch,
-                    note.velocity,
-                    false,
-                ));
+                    VoiceEventKind::NoteOff,
+                    voice_id.clone(),
+                )));
             }
         }
     }
@@ -74,20 +76,13 @@ impl NoteTrack {
         }
     }
 
-    /// Gets a mutable reference to the corresponding active voice by `VoiceEventID`.
-    fn get_voice_by_event_id_mut(&mut self, id: &VoiceEventID) -> Option<&mut Voice> {
-        self.event_id_to_index
-            .get(id)
-            .and_then(|index| self.active_voices.get_mut(*index))
-    }
-
     /// Consumes the events at the current sample and updates the active voices.
     pub(super) fn consume_events_at_sample(&mut self, sample: usize) {
         // Increment ages for each active voices
         self.increment_active_ages();
 
         // Consume event and create events
-        while let Some(event) = self.voice_events.peek().cloned() {
+        while let Some(Reverse(event)) = self.voice_events.peek().cloned() {
             if event.sample_time > sample {
                 // If the event is AFTER the current sample, break the loop
                 break;
@@ -111,9 +106,12 @@ impl NoteTrack {
                     }
                 }
                 VoiceEventKind::NoteOff => {
-                    if let Some(voice) = self.get_voice_by_event_id_mut(&event.id) {
-                        voice.age = 0.0;
-                        voice.is_active = false;
+                    if let Some(index) = self.event_id_to_index.get(&event.id).copied() {
+                        self.free_voice(&index);
+                        if let Some(voice) = self.active_voices.get_mut(index) {
+                            voice.age = 0.0;
+                            voice.is_active = false;
+                        }
                     }
                 }
             }

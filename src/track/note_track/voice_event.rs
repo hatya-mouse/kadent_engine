@@ -4,7 +4,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Eq, Hash, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, Hash, PartialEq, Debug, Serialize, Deserialize)]
 pub enum VoiceEventID {
     Midi {
         pitch: u8,
@@ -63,26 +63,26 @@ impl VoiceEvent {
 
 impl PartialEq for VoiceEvent {
     fn eq(&self, other: &Self) -> bool {
-        &self.sample_time == &other.sample_time
-    }
-}
-
-impl PartialOrd for VoiceEvent {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        if &self.sample_time < &other.sample_time {
-            Some(std::cmp::Ordering::Less)
-        } else if &self.sample_time == &other.sample_time {
-            Some(std::cmp::Ordering::Equal)
-        } else {
-            Some(std::cmp::Ordering::Greater)
-        }
+        self.sample_time == other.sample_time
     }
 }
 
 impl Eq for VoiceEvent {}
 
+impl PartialOrd for VoiceEvent {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 impl Ord for VoiceEvent {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other).unwrap()
+        if self.sample_time < other.sample_time {
+            std::cmp::Ordering::Less
+        } else if self.sample_time == other.sample_time {
+            std::cmp::Ordering::Equal
+        } else {
+            std::cmp::Ordering::Greater
+        }
     }
 }

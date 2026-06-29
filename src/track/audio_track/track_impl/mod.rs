@@ -104,7 +104,12 @@ impl Track for AudioTrack {
         self.graph.prepare()
     }
 
-    fn process_to_local_buffer(&mut self, is_playing: bool, playhead: usize) {
+    fn process_to_local_buffer(
+        &mut self,
+        is_playing: bool,
+        playhead: usize,
+        _tempo_map: &TempoMap,
+    ) {
         if is_playing {
             let buffer_size = self.audio_ctx.buffer_size * self.audio_ctx.channels;
             let buffer_end = playhead + buffer_size;

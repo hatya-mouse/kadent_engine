@@ -14,7 +14,10 @@ use crate::{
     node::builtin::{AudioOutputNode, NoteInputNode},
     track::{RegionID, note_track::voice_event::VoiceEventID},
 };
-use std::collections::{BinaryHeap, HashMap, VecDeque};
+use std::{
+    cmp::Reverse,
+    collections::{BinaryHeap, HashMap, VecDeque},
+};
 use voice_event::VoiceEvent;
 
 #[derive(Default, Clone)]
@@ -31,17 +34,19 @@ pub struct NoteTrack {
     // --- VOICE EVENTS ---
     /// Voice Events such as NoteOn and NoteOff.
     /// Used for generating actual `Voice`.
-    voice_events: BinaryHeap<VoiceEvent>,
+    voice_events: BinaryHeap<Reverse<VoiceEvent>>,
 
     // --- EVENT -> VOICE PROCESSING ---
     /// *Active* voices in the currently processing frame. The length must be as the same as `max_voices`.
     active_voices: Vec<Voice>,
     /// Indices where the corresponding slots are vacant and available for new voice.
     /// Indices are of `active_voices`.
+    ///
     /// It is recommended to call `pop_front` to get a free voice, and call `push_back` to register a free slot.
     free_voices: VecDeque<usize>,
     /// Indices of currently *active* voices, sorted in a order where the voices have started.
     /// Indices are of `active_voices`.
+    ///
     /// Call `pop_front` to get an oldest voice, and call `push_back` to register a new voice.
     old_voices: VecDeque<usize>,
 
@@ -141,17 +146,21 @@ impl NoteTrack {
     /// Receives live MIDI events and updates the voice state.
     /// Must be called before process() so that changes take effect from sample 0 of the buffer.
     pub fn pass_midi(&mut self, events: &[MidiEvent]) {
+        // Push a new voice event to the queue
         for event in events {
             match event {
-                MidiEvent::NoteOn { pitch, velocity } => {
-                    // Allocate from the shared pool, stealing the oldest sequenced voice if full
-                    let voice_idx = self.find_or_steal_voice();
-                    self.voice_events.push(VoiceEvent::from_midi_event(
+                MidiEvent::NoteOn { .. } => {
+                    self.voice_events.push(Reverse(VoiceEvent::from_midi_event(
                         self.midi_playhead,
                         event.clone(),
-                    ));
+                    )));
                 }
-                MidiEvent::NoteOff { pitch } => {}
+                MidiEvent::NoteOff { .. } => {
+                    self.voice_events.push(Reverse(VoiceEvent::from_midi_event(
+                        self.midi_playhead,
+                        event.clone(),
+                    )));
+                }
             }
         }
     }

@@ -48,7 +48,7 @@ pub trait Track: Send + Any {
     ) -> Result<(), GraphError>;
 
     /// Processes the track and writes the processed output to the local buffer.
-    fn process_to_local_buffer(&mut self, is_playing: bool, playhead: usize);
+    fn process_to_local_buffer(&mut self, is_playing: bool, playhead: usize, tempo_map: &TempoMap);
 
     /// Returns the processed audio data in the local buffer.
     fn get_local_buffer(&self) -> &[f32];
