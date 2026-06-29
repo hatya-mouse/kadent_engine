@@ -1,33 +1,15 @@
 use crate::{
     data_types::Voice,
     mixer::TempoMap,
-    track::note_track::{NoteTrack, VoiceEvent},
+    track::note_track::{
+        NoteTrack, VoiceEvent,
+        voice_event::{VoiceEventID, VoiceEventKind},
+    },
 };
-use std::ptr::copy_nonoverlapping;
 
 const DECLICK_SAMPLES: usize = 512;
 
 impl NoteTrack {
-    // --- VOICE GETTING ---
-
-    /// Returns the vacant voice index, or returns the index of the oldest voice.
-    pub(super) fn find_or_steal_voice(&mut self) -> usize {
-        let new_voice_index = self.free_voices.pop().unwrap_or_else(|| {
-            // Drain stale entries from the front until we find one still active
-            loop {
-                let idx = self.active_voices.pop_front().unwrap_or(0);
-                if self.active_voice_set.remove(&idx) {
-                    break idx;
-                }
-            }
-        });
-        // Cancel any in-progress fade-out if this slot is being reused
-        self.released_voice_set.remove(&new_voice_index);
-        self.active_voices.push_back(new_voice_index);
-        self.active_voice_set.insert(new_voice_index);
-        new_voice_index
-    }
-
     // --- PREPARATION ---
 
     /// Retrieves the notes from the regions and converts them to events.
@@ -84,59 +66,19 @@ impl NoteTrack {
 
     // --- PROCESS ---
 
-    /// Seeks the event cursor to the current playhead position.
-    pub(super) fn seek_event_cursor(&mut self, playhead: usize) {
-        if self
-            .events
-            .get(self.event_cursor)
-            .is_some_and(|e| e.sample_index > playhead)
-            || (self.event_cursor > 0 && self.events[self.event_cursor - 1].sample_index > playhead)
-        {
-            self.event_cursor = self.events.partition_point(|e| e.sample_index < playhead);
-        }
-    }
-
-    /// Propagates the voice data from the previous sample to the current sample.
-    pub(super) fn propagate_voices(
-        &mut self,
-        local_sample: usize,
-        max_voices: usize,
-        first_voice_index: usize,
-    ) {
-        // If the current sample is the first sample in the buffer,
-        // Copy from the last voices
-        if local_sample == 0 && !self.last_voices.is_empty() {
-            unsafe {
-                copy_nonoverlapping(
-                    self.last_voices.as_ptr(),
-                    self.voice_buffer.as_mut_ptr(),
-                    max_voices,
-                );
-            }
-        }
-
-        // If the current sample is not the first sample in the buffer,
-        // copy the previous voices to the current index
-        if local_sample > 0 {
-            let previous = (local_sample - 1) * max_voices;
-            unsafe {
-                copy_nonoverlapping(
-                    self.voice_buffer[previous..].as_ptr(),
-                    self.voice_buffer[first_voice_index..].as_mut_ptr(),
-                    max_voices,
-                );
-            }
-        }
-    }
-
     /// Updates the ages for each active voices.
     fn increment_active_ages(&mut self) {
         let seconds_per_sample = 1f32 / self.audio_ctx.sample_rate as f32;
         for active_voice in self.active_voices.iter_mut() {
-            if let Some(active_voice) = active_voice {
-                active_voice.age += seconds_per_sample;
-            }
+            active_voice.age += seconds_per_sample;
         }
+    }
+
+    /// Gets a mutable reference to the corresponding active voice by `VoiceEventID`.
+    fn get_voice_by_event_id_mut(&mut self, id: &VoiceEventID) -> Option<&mut Voice> {
+        self.event_id_to_index
+            .get(id)
+            .and_then(|index| self.active_voices.get_mut(*index))
     }
 
     /// Consumes the events at the current sample and updates the active voices.
@@ -145,5 +87,36 @@ impl NoteTrack {
         self.increment_active_ages();
 
         // Consume event and create events
+        while let Some(event) = self.voice_events.peek().cloned() {
+            if event.sample_time > sample {
+                // If the event is AFTER the current sample, break the loop
+                break;
+            } else if event.sample_time < sample {
+                // If the event is BEFORE the current sample, consume it and continue the loop
+                self.voice_events.pop();
+                continue;
+            }
+
+            // Consume the event
+            self.voice_events.pop();
+
+            match &event.kind {
+                VoiceEventKind::NoteOn { pitch, velocity } => {
+                    let new_index = self.find_or_steal_voice();
+                    if let Some(voice) = self.active_voices.get_mut(new_index) {
+                        voice.pitch = *pitch;
+                        voice.velocity = *velocity;
+                        voice.age = 0.0;
+                        voice.is_active = true;
+                    }
+                }
+                VoiceEventKind::NoteOff => {
+                    if let Some(voice) = self.get_voice_by_event_id_mut(&event.id) {
+                        voice.age = 0.0;
+                        voice.is_active = false;
+                    }
+                }
+            }
+        }
     }
 }
