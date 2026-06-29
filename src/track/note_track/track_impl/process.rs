@@ -95,7 +95,7 @@ impl NoteTrack {
             // Assume that processed_notes is sorted by start time, so we can break the loop if the note is after the buffer end
             if note.start < playhead_ticks {
                 continue;
-            } else if note.start >= buffer_end_ticks {
+            } else if note.start > buffer_end_ticks {
                 break;
             }
 
