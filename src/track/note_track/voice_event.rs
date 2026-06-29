@@ -38,7 +38,7 @@ impl VoiceEvent {
                 sample_time,
                 kind: VoiceEventKind::NoteOn {
                     pitch: pitch as f32,
-                    velocity: velocity as f32,
+                    velocity: velocity as f32 / 256f32,
                 },
                 id: VoiceEventID::Midi { pitch },
             },
