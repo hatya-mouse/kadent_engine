@@ -80,14 +80,17 @@ impl NoteTrack {
         for note in self.processed_notes.iter() {
             // Skip the note if it is not in the currently processing buffer
             // Assume that processed_notes is sorted by start time, so we can break the loop if the note is after the buffer end
-            if note.start < playhead_ticks {
+            if note.start + note.duration < playhead_ticks {
                 continue;
             } else if note.start > buffer_end_ticks {
                 break;
             }
 
+            // Clamp the note start by the playhead
+            let clamped_note_start = note.start.max(playhead_ticks);
+
             // Convert the start and end beats to samples
-            let absolute_start_sample = tempo_map.ticks_to_samples(note.start);
+            let absolute_start_sample = tempo_map.ticks_to_samples(clamped_note_start);
             let absolute_end_sample = tempo_map.ticks_to_samples(note.start + note.duration);
 
             // Add the note start and end event to the events
