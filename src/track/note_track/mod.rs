@@ -57,11 +57,6 @@ pub struct NoteTrack {
     ///
     /// It is recommended to call `pop_front` to get a free voice, and call `push_back` to register a free slot.
     free_voices: VecDeque<usize>,
-    /// Indices of currently *active* voices, sorted in a order where the voices have started.
-    /// Indices are of `active_voices`.
-    ///
-    /// Call `pop_front` to get an oldest voice, and call `push_back` to register a new voice.
-    old_voices: VecDeque<usize>,
 
     // --- ACTIVE VOICES MANAGEMENT ---
     /// Map from `VoiceEventID` to `active_voices`, used to get the corresponding voice when processing NoteOff.
@@ -140,18 +135,24 @@ impl NoteTrack {
     /// Returns the vacant voice index, or returns the index of the oldest voice.
     /// This function registers the given voice index to `old_voices`.
     fn find_or_steal_voice(&mut self) -> usize {
-        // TODO: NOT TO USE VECDEQUE FOR `old_voices` BECAUSE SOME VOICES MAY END BEFORE THE OLDER VOICE ENDS
-        let new_index = self
-            .free_voices
-            .pop_front()
-            .unwrap_or_else(|| self.old_voices.pop_front().unwrap_or_default());
-        self.old_voices.push_back(new_index);
-        new_index
+        // If there is a free voice, return it
+        if let Some(index) = self.free_voices.pop_front() {
+            return index;
+        }
+
+        // If not, find the oldest active voice and return its index
+        self.active_voices
+            .iter()
+            .enumerate()
+            .filter(|(_, v)| v.is_active)
+            .max_by(|(_, a), (_, b)| a.age.partial_cmp(&b.age).unwrap())
+            .map(|(i, _)| i)
+            .unwrap_or(0)
     }
 
     /// Marks the given voice index free.
     fn free_voice(&mut self, free_index: &usize) {
-        self.free_voices.retain(|index| index != free_index);
+        self.free_voices.push_back(*free_index);
     }
 
     // --- REALTIME MIDI ---
