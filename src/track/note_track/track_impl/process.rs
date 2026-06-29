@@ -79,6 +79,7 @@ impl NoteTrack {
         // Calculate the start sample of the region
         for note in self.processed_notes.iter() {
             // Skip the note if it is not in the currently processing buffer
+            // Assume that processed_notes is sorted by start time, so we can break the loop if the note is after the buffer end
             if note.start < playhead_ticks {
                 continue;
             } else if note.start > buffer_end_ticks {
@@ -148,9 +149,10 @@ impl NoteTrack {
                         voice.age = 0.0;
                         voice.is_active = true;
                     }
+                    self.event_id_to_index.insert(event.id, new_index);
                 }
                 VoiceEventKind::NoteOff => {
-                    if let Some(index) = self.event_id_to_index.get(&event.id).copied() {
+                    if let Some(index) = self.event_id_to_index.remove(&event.id) {
                         self.free_voice(&index);
                         if let Some(voice) = self.active_voices.get_mut(index) {
                             voice.age = 0.0;

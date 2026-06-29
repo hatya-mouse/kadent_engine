@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 /// Processed note generated from sequenced note data.
 /// Should only be used for processing the note data in the `NoteTrack`.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(super) struct ProcessedNote {
     /// Unique ID in the whole processed notes array.
     pub id: usize,
