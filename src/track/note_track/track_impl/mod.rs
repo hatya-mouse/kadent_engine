@@ -69,7 +69,6 @@ impl Track for NoteTrack {
     ) -> Result<(), GraphError> {
         // Pre-process the sequenced notes into processed notes
         self.pre_process_notes();
-        println!("PreProcessed Notes: {:?}", self.processed_notes);
 
         // Clear the voice events and fill the active_voices vector with inactive voices
         self.voice_events.clear();
