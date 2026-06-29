@@ -103,8 +103,6 @@ impl Track for NoteTrack {
             voice_buffer.extend(self.active_voices.clone());
         }
 
-        println!("Active Voices: {:?}", self.active_voices);
-
         // Get a pointer to the voice buffer
         let input_ptr = voice_buffer.as_ptr() as *const u8;
         // Process the graph
