@@ -57,7 +57,13 @@ impl Track for NoteTrack {
 
     // --- SEEKING ---
 
-    fn seek(&mut self, _playhead: usize) {}
+    fn seek(&mut self, _playhead: usize) {
+        // Clear the voices and events
+        self.voice_events.clear();
+        self.active_voices = vec![Voice::default(); self.audio_ctx.max_voices];
+        self.voice_sources = vec![None; self.audio_ctx.max_voices];
+        self.free_voices = (0..self.audio_ctx.max_voices).collect();
+    }
 
     // --- TRACK PROCESSING ---
 
@@ -70,7 +76,7 @@ impl Track for NoteTrack {
         // Pre-process the sequenced notes into processed notes
         self.pre_process_notes();
 
-        // Clear the voice events and fill the active_voices vector with inactive voices
+        // Clear the voices and events
         self.voice_events.clear();
         self.active_voices = vec![Voice::default(); self.audio_ctx.max_voices];
         self.voice_sources = vec![None; self.audio_ctx.max_voices];
