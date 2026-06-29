@@ -34,4 +34,14 @@ impl Voice {
             gain: 0.0,
         }
     }
+
+    pub fn inactive() -> Self {
+        Self {
+            pitch: 0.0,
+            velocity: 0.0,
+            age: 0.0,
+            is_active: false,
+            gain: 0.0,
+        }
+    }
 }

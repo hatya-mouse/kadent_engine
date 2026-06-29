@@ -1,7 +1,7 @@
 mod process;
 
 use crate::{
-    data_types::{AudioContext, Ticks},
+    data_types::{AudioContext, Ticks, Voice},
     graph::{Graph, error::GraphError},
     mixer::TempoMap,
     track::{RegionID, Track, note_track::NoteTrack},
@@ -71,6 +71,8 @@ impl Track for NoteTrack {
         self.pre_process_notes();
         // Initialize the local buffer
         self.init_local_buffer();
+        // Will the active_voices vector with inactive voices
+        self.active_voices = vec![Voice::inactive(); self.audio_ctx.max_voices];
         // Prepare the graph
         self.graph.prepare()
     }
