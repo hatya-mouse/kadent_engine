@@ -75,8 +75,6 @@ impl Track for NoteTrack {
         self.voice_events.clear();
         self.active_voices = vec![Voice::inactive(); self.audio_ctx.max_voices];
 
-        println!("Pre-proessed notes: {:#?}", self.processed_notes);
-
         // Prepare the graph
         self.graph.prepare()
     }
@@ -98,8 +96,6 @@ impl Track for NoteTrack {
         // Create voice events from sequenced notes
         self.create_events_from_notes(playhead, tempo_map);
 
-        println!("Voice events: {:#?}", self.voice_events);
-
         for sample in playhead..buffer_end {
             // Convert voice events to voices
             // Update active voics for this sample
@@ -107,6 +103,8 @@ impl Track for NoteTrack {
             // Extend the voice buffer with the current active voices
             voice_buffer.extend(self.active_voices.clone());
         }
+
+        println!("Voice buffer: {:#?}", voice_buffer);
 
         // Get a pointer to the voice buffer
         let input_ptr = voice_buffer.as_ptr() as *const u8;
