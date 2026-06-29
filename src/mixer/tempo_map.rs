@@ -138,10 +138,8 @@ impl TempoMap {
         // Calculate the elapsed samples from the event's sample offset
         let elapsed_samples = samples - event.sample_offset;
         // Convert the elapsed samples to ticks
-        let elapsed_ticks =
-            (elapsed_samples as u128 * self.audio_ctx.resolution as u128 * event.bpm as u128)
-                / (60u128 * self.audio_ctx.sample_rate as u128);
-
+        let elapsed_ticks = (elapsed_samples as f64 * self.audio_ctx.resolution as f64 * event.bpm)
+            / (60f64 * self.audio_ctx.sample_rate as f64);
         event.ticks + Ticks(elapsed_ticks as i64)
     }
 }
