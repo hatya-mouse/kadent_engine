@@ -74,17 +74,13 @@ impl Track for NoteTrack {
         // Clear the voice events and fill the active_voices vector with inactive voices
         self.voice_events.clear();
         self.active_voices = vec![Voice::default(); self.audio_ctx.max_voices];
+        self.voice_sources = vec![None; self.audio_ctx.max_voices];
 
         // Prepare the graph
         self.graph.prepare()
     }
 
-    fn process_to_local_buffer(
-        &mut self,
-        _is_playing: bool,
-        playhead: usize,
-        tempo_map: &TempoMap,
-    ) {
+    fn process_to_local_buffer(&mut self, is_playing: bool, playhead: usize, tempo_map: &TempoMap) {
         let mut voice_buffer =
             Vec::with_capacity(self.audio_ctx.buffer_size * self.audio_ctx.max_voices);
         let buffer_end = playhead + self.audio_ctx.buffer_size;
@@ -99,7 +95,7 @@ impl Track for NoteTrack {
         for sample in playhead..buffer_end {
             // Convert voice events to voices
             // Update active voics for this sample
-            self.consume_events_at_sample(sample);
+            self.consume_events_at_sample(is_playing, sample);
             // Extend the voice buffer with the current active voices
             voice_buffer.extend(self.active_voices.clone());
         }

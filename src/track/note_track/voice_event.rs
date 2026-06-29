@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq, Debug, Serialize, Deserialize)]
 pub enum VoiceEventID {
-    Midi { pitch: u8 },
+    RealtimeMidi { pitch: u8 },
     SequencedNote { id: usize },
 }
 
@@ -40,12 +40,12 @@ impl VoiceEvent {
                     pitch: pitch as f32,
                     velocity: velocity as f32 / 256f32,
                 },
-                id: VoiceEventID::Midi { pitch },
+                id: VoiceEventID::RealtimeMidi { pitch },
             },
             MidiEvent::NoteOff { pitch } => Self {
                 sample_time,
                 kind: VoiceEventKind::NoteOff,
-                id: VoiceEventID::Midi { pitch },
+                id: VoiceEventID::RealtimeMidi { pitch },
             },
         }
     }

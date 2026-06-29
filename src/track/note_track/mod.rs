@@ -4,6 +4,7 @@ mod note_region;
 mod processed_note;
 mod track_impl;
 mod voice_event;
+mod voice_source;
 
 pub use note::{Note, NoteID};
 pub use note_modifier::{NoteModifier, NoteModifierID};
@@ -15,7 +16,9 @@ use crate::{
     node::builtin::{AudioOutputNode, NoteInputNode},
     track::{
         RegionID,
-        note_track::{processed_note::ProcessedNote, voice_event::VoiceEventID},
+        note_track::{
+            processed_note::ProcessedNote, voice_event::VoiceEventID, voice_source::VoiceSource,
+        },
     },
 };
 use std::{
@@ -47,6 +50,8 @@ pub struct NoteTrack {
     // --- EVENT -> VOICE PROCESSING ---
     /// *Active* voices in the currently processing frame. The length must be as the same as `max_voices`.
     active_voices: Vec<Voice>,
+    /// The sources of each voices with each corresponding to voices in `active_voices`. (MIDI or SequencedNote)
+    voice_sources: Vec<Option<VoiceSource>>,
     /// Indices where the corresponding slots are vacant and available for new voice.
     /// Indices are of `active_voices`.
     ///

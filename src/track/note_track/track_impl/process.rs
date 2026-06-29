@@ -2,7 +2,7 @@ use crate::{
     data_types::Ticks,
     mixer::TempoMap,
     track::note_track::{
-        Note, NoteTrack, ProcessedNote, VoiceEvent,
+        Note, NoteTrack, ProcessedNote, VoiceEvent, VoiceSource,
         voice_event::{VoiceEventID, VoiceEventKind},
     },
 };
@@ -129,18 +129,39 @@ impl NoteTrack {
         self.local_buffer = vec![0.0; self.audio_ctx.buffer_size * self.audio_ctx.channels];
     }
 
-    /// Updates the ages for each active voices.
-    fn increment_active_ages(&mut self) {
+    /// Updates the ages for each MIDI voices in `active_voices`.
+    fn increment_midi_ages(&mut self) {
         let seconds_per_sample = 1f32 / self.audio_ctx.sample_rate as f32;
-        for active_voice in self.active_voices.iter_mut() {
-            active_voice.age += seconds_per_sample;
-        }
+        self.active_voices
+            .iter_mut()
+            .zip(self.voice_sources.iter())
+            .for_each(|(voice, source)| {
+                if matches!(source, Some(VoiceSource::RealtimeMidi)) {
+                    voice.age += seconds_per_sample;
+                }
+            });
+    }
+
+    /// Updates the ages for each voices generated from sequenced `Note` in `active_voices`.
+    fn increment_sequenced_ages(&mut self) {
+        let seconds_per_sample = 1f32 / self.audio_ctx.sample_rate as f32;
+        self.active_voices
+            .iter_mut()
+            .zip(self.voice_sources.iter())
+            .for_each(|(voice, source)| {
+                if matches!(source, Some(VoiceSource::SequencedNote)) {
+                    voice.age += seconds_per_sample;
+                }
+            });
     }
 
     /// Consumes the events at the current sample and updates the active voices.
-    pub(super) fn consume_events_at_sample(&mut self, sample: usize) {
+    pub(super) fn consume_events_at_sample(&mut self, is_playing: bool, sample: usize) {
         // Increment ages for each active voices
-        self.increment_active_ages();
+        self.increment_midi_ages();
+        if is_playing {
+            self.increment_sequenced_ages();
+        }
 
         // Consume event and create events
         while let Some(Reverse(event)) = self.voice_events.peek().cloned() {
@@ -166,6 +187,16 @@ impl NoteTrack {
                         voice.is_active = true;
                     }
                     self.event_id_to_index.insert(event.id, new_index);
+
+                    // Set the source of the voice based on the event ID
+                    match event.id {
+                        VoiceEventID::SequencedNote { .. } => {
+                            self.voice_sources[new_index] = Some(VoiceSource::SequencedNote);
+                        }
+                        VoiceEventID::RealtimeMidi { .. } => {
+                            self.voice_sources[new_index] = Some(VoiceSource::RealtimeMidi);
+                        }
+                    }
                 }
                 VoiceEventKind::NoteOff => {
                     if let Some(index) = self.event_id_to_index.remove(&event.id) {
@@ -174,6 +205,9 @@ impl NoteTrack {
                             voice.age = 0.0;
                             voice.is_active = false;
                         }
+
+                        // Set the source of the voice to None
+                        self.voice_sources[index] = None;
                     }
                 }
             }
