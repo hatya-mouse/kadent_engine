@@ -89,8 +89,6 @@ impl NoteTrack {
         let playhead_ticks = tempo_map.samples_to_ticks(playhead);
         let buffer_end_ticks = tempo_map.samples_to_ticks(buffer_end);
 
-        println!("----------------BUFFER----------------");
-
         // Calculate the start sample of the region
         for note in self.processed_notes.iter() {
             // Skip the note if it is not in the currently processing buffer
@@ -104,11 +102,6 @@ impl NoteTrack {
             // Convert the start and end beats to samples
             let absolute_start_sample = tempo_map.ticks_to_samples(note.start);
             let absolute_end_sample = tempo_map.ticks_to_samples(note.start + note.duration);
-
-            println!(
-                "Pushed note event: start_sample={}, end_sample={}, pitch={}, velocity={}",
-                absolute_start_sample, absolute_end_sample, note.pitch, note.velocity
-            );
 
             // Add the note start and end event to the events
             let voice_id = VoiceEventID::SequencedNote { id: note.id };
