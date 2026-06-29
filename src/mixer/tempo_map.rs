@@ -140,6 +140,6 @@ impl TempoMap {
         // Convert the elapsed samples to ticks
         let elapsed_ticks = (elapsed_samples as f64 * self.audio_ctx.resolution as f64 * event.bpm)
             / (60f64 * self.audio_ctx.sample_rate as f64);
-        event.ticks + Ticks(elapsed_ticks as i64)
+        event.ticks + Ticks(elapsed_ticks.round() as i64)
     }
 }
