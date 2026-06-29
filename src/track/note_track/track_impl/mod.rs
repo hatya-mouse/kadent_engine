@@ -92,8 +92,10 @@ impl Track for NoteTrack {
         // because the next buffer will start processing from that point
         self.midi_playhead = buffer_end;
 
-        // Create voice events from sequenced notes
-        self.create_events_from_notes(playhead, tempo_map);
+        if is_playing {
+            // Create voice events from sequenced notes
+            self.create_events_from_notes(playhead, tempo_map);
+        }
 
         for sample in playhead..buffer_end {
             // Convert voice events to voices
