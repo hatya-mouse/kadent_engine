@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
+use std::fmt::Display;
 use std::ops::{Add, Div, Mul, Sub};
 
 #[derive(Default, Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -54,5 +55,11 @@ impl Ord for Ticks {
         } else {
             Ordering::Less
         }
+    }
+}
+
+impl Display for Ticks {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} ticks", self.0)
     }
 }
