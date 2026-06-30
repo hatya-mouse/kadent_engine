@@ -86,21 +86,17 @@ impl NoteTrack {
     /// Retrieves the notes from the regions and converts them to events.
     pub(super) fn create_events_from_notes(&mut self, playhead: usize, tempo_map: &TempoMap) {
         let buffer_end = playhead + self.audio_ctx.buffer_size;
-        let playhead_ticks = tempo_map.samples_to_ticks(playhead);
-        let buffer_end_ticks = tempo_map.samples_to_ticks(buffer_end);
 
-        // Calculate the start sample of the region
         for note in self.processed_notes.iter() {
-            // Skip the note if it is not in the currently processing buffer
-            // Assume that processed_notes is sorted by start time, so we can break the loop if the note is after the buffer end
-            if note.start < playhead_ticks {
+            // Use samples for comparison to avoid asymmetric rounding
+            let absolute_start_sample = tempo_map.ticks_to_samples(note.start);
+
+            if absolute_start_sample < playhead {
                 continue;
-            } else if note.start > buffer_end_ticks {
+            } else if absolute_start_sample >= buffer_end {
                 break;
             }
 
-            // Convert the start and end beats to samples
-            let absolute_start_sample = tempo_map.ticks_to_samples(note.start);
             let absolute_end_sample = tempo_map.ticks_to_samples(note.start + note.duration);
 
             // Add the note start and end event to the events
