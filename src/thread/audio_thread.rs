@@ -50,7 +50,7 @@ pub(super) fn audio_thread(
 
     // Create an output callback
     let config = cpal::StreamConfig {
-        channels: proj_config.channels as u16,
+        channels: proj_config.channels,
         sample_rate: hardware_config.sample_rate as u32,
         buffer_size: cpal::BufferSize::Fixed(hardware_config.buffer_size as u32),
     };

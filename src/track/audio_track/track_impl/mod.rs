@@ -1,5 +1,7 @@
+mod process;
+
 use crate::{
-    data_types::{ProjectConfig, Ticks},
+    data_types::{HardwareConfig, ProjectConfig, Ticks},
     graph::{Graph, error::GraphError},
     mixer::TempoMap,
     track::{
@@ -7,8 +9,6 @@ use crate::{
         audio_track::{AudioTrack, tempo_strech::tempo_strech},
     },
 };
-
-mod process;
 
 impl Track for AudioTrack {
     // --- CLONING ---
@@ -35,9 +35,9 @@ impl Track for AudioTrack {
 
     // --- PROJECT CONTEXT UPDARING ---
 
-    fn set_proj_ctx(&mut self, proj_config: &ProjectConfig) {
+    fn set_config(&mut self, proj_config: &ProjectConfig, hardware_config: &HardwareConfig) {
         self.proj_config = proj_config.clone();
-        self.graph.set_proj_ctx(proj_config);
+        self.graph.set_config(proj_config, hardware_config);
     }
 
     // --- REGION MODIFICATION ---
@@ -70,19 +70,21 @@ impl Track for AudioTrack {
         duration: usize,
         tempo_map: &TempoMap,
     ) -> Result<(), GraphError> {
+        let buffer_size = self.hardware_config.buffer_size as usize;
+        let channels = self.proj_config.channels as usize;
+
         // Calculate the total sample number
         // Ceil to a multiple of the buffer size
-        let total_frames =
-            duration.div_ceil(self.proj_config.buffer_size) * self.proj_config.buffer_size;
+        let total_frames = duration.div_ceil(buffer_size) * buffer_size;
         // Initialize the processed vector with zeros
-        self.pre_processed = vec![0.0; total_frames * self.proj_config.channels];
+        self.pre_processed = vec![0.0; total_frames * channels];
 
         // Resample the each regions
         for region in self.regions.values() {
             let resampled = tempo_strech(
                 region,
-                self.proj_config.sample_rate,
-                self.proj_config.channels,
+                self.hardware_config.sample_rate,
+                channels,
                 tempo_map,
             );
 
@@ -111,7 +113,8 @@ impl Track for AudioTrack {
         _tempo_map: &TempoMap,
     ) {
         if is_playing {
-            let buffer_size = self.proj_config.buffer_size * self.proj_config.channels;
+            let buffer_size =
+                self.hardware_config.buffer_size as usize * self.proj_config.channels as usize;
             let buffer_end = playhead + buffer_size;
 
             // Create a vector for input buffer

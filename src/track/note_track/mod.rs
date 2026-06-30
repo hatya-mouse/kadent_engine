@@ -11,7 +11,7 @@ pub use note_modifier::{NoteModifier, NoteModifierID};
 pub use note_region::NoteRegion;
 
 use crate::{
-    data_types::{MidiEvent, ProjectConfig, Voice},
+    data_types::{HardwareConfig, MidiEvent, ProjectConfig, Voice},
     graph::Graph,
     node::builtin::{AudioOutputNode, NoteInputNode},
     track::{
@@ -69,15 +69,16 @@ pub struct NoteTrack {
     // --- LOCAL OUTPUT BUFFER ---
     local_buffer: Vec<f32>,
 
-    // --- PROJECT CONTEXT ---
+    // --- CONFIGURATIONS ---
     proj_config: ProjectConfig,
+    hardware_config: HardwareConfig,
 
     // --- MISC ---
     next_region_id: u64,
 }
 
 impl NoteTrack {
-    pub fn new(proj_config: ProjectConfig) -> Self {
+    pub fn new(proj_config: ProjectConfig, hardware_config: HardwareConfig) -> Self {
         // Create a graph with the input and output nodes
         let input_node = NoteInputNode::default();
         let output_node = AudioOutputNode::default();
@@ -85,11 +86,13 @@ impl NoteTrack {
             Box::new(input_node),
             Box::new(output_node),
             proj_config.clone(),
+            hardware_config.clone(),
         );
 
         Self {
             graph,
             proj_config,
+            hardware_config,
             ..Default::default()
         }
     }

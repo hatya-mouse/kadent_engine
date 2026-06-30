@@ -16,9 +16,9 @@ pub struct Project {
     /// A tempo map to store the tempo changes.
     pub tempo_map: TempoMap,
 
-    // --- PROJECT CONTEXT ---
-    /// An project context for the project, which stores some configurations.
+    // --- CONFIGURATIONS ---
     pub proj_config: ProjectConfig,
+    pub hardware_config: HardwareConfig,
 
     // --- RANGE ---
     /// The start beats of the range to be exported or played.
@@ -46,6 +46,7 @@ impl Project {
             tracks: HashMap::new(),
             tempo_map: TempoMap::new(bpm, proj_config.clone(), hardware_config.clone()),
             proj_config,
+            hardware_config,
             range_start,
             range_duration,
             next_track_id: 0,
@@ -55,6 +56,7 @@ impl Project {
     /// Creates a new project with the given tempo map.
     pub fn with_tempo_map(
         proj_config: ProjectConfig,
+        hardware_config: HardwareConfig,
         tempo_map: TempoMap,
         range_start: Ticks,
         range_duration: Ticks,
@@ -63,6 +65,7 @@ impl Project {
             tracks: HashMap::new(),
             tempo_map,
             proj_config,
+            hardware_config,
             range_start,
             range_duration,
             next_track_id: 0,
@@ -88,7 +91,7 @@ impl Project {
     /// Adds a new track to the mixer, setting the project context to the one in the mixer.
     pub fn add_track(&mut self, mut track: Box<dyn Track>) -> TrackID {
         let id = self.generate_track_id();
-        track.set_proj_ctx(&self.proj_config);
+        track.set_config(&self.proj_config, &self.hardware_config);
         self.tracks.insert(id, track);
         id
     }

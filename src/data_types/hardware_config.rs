@@ -19,19 +19,19 @@ impl HardwareConfig {
     }
 
     pub fn from_output_device(device: &cpal::Device) -> Option<Self> {
-        if let Ok(mut supported_configs) = device.supported_output_configs() {
-            if let Some(config_range) = supported_configs.next() {
-                let buffer_size = match config_range.buffer_size() {
-                    SupportedBufferSize::Range { min: _, max } => *max,
-                    _ => 512,
-                };
+        if let Ok(mut supported_configs) = device.supported_output_configs()
+            && let Some(config_range) = supported_configs.next()
+        {
+            let buffer_size = match config_range.buffer_size() {
+                SupportedBufferSize::Range { min: _, max } => *max,
+                _ => 512,
+            };
 
-                return Some(HardwareConfig {
-                    sample_rate: config_range.max_sample_rate() as u64,
-                    buffer_size,
-                    max_voices: 32,
-                });
-            }
+            return Some(HardwareConfig {
+                sample_rate: config_range.max_sample_rate() as u64,
+                buffer_size,
+                max_voices: 32,
+            });
         }
 
         None

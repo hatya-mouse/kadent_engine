@@ -188,8 +188,9 @@ impl Graph {
     // --- PROJECT CONTEXT UPDATING ---
 
     /// Sets the project context to the new one.
-    pub fn set_ctx(&mut self, proj_config: &ProjectConfig, hardware_config: &HardwareConfig) {
+    pub fn set_config(&mut self, proj_config: &ProjectConfig, hardware_config: &HardwareConfig) {
         self.proj_config = proj_config.clone();
+        self.hardware_config = hardware_config.clone();
 
         // Call update functions for every nodes
         for node in self.nodes.values_mut() {

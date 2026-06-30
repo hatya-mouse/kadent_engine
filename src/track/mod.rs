@@ -5,7 +5,7 @@ mod region_id;
 pub use region_id::RegionID;
 
 use crate::{
-    data_types::{ProjectConfig, Ticks},
+    data_types::{HardwareConfig, ProjectConfig, Ticks},
     graph::{Graph, error::GraphError},
     mixer::TempoMap,
 };
@@ -34,7 +34,7 @@ pub trait Track: Send + Any {
     fn remove_region(&mut self, region_id: &RegionID);
 
     /// Sets the project context to the new one.
-    fn set_proj_ctx(&mut self, proj_config: &ProjectConfig);
+    fn set_config(&mut self, proj_config: &ProjectConfig, hardware_config: &HardwareConfig);
 
     /// Prepares for the seeking.
     fn seek(&mut self, playhead: usize);

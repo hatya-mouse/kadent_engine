@@ -85,7 +85,7 @@ impl NoteTrack {
 
     /// Retrieves the notes from the regions and converts them to events.
     pub(super) fn create_events_from_notes(&mut self, playhead: usize, tempo_map: &TempoMap) {
-        let buffer_end = playhead + self.proj_config.buffer_size;
+        let buffer_end = playhead + self.hardware_config.buffer_size as usize;
         let playhead_ticks = tempo_map.samples_to_ticks(playhead);
         let buffer_end_ticks = tempo_map.samples_to_ticks(buffer_end);
 
@@ -123,7 +123,7 @@ impl NoteTrack {
 
     /// Updates the ages for each MIDI voices in `active_voices`.
     fn increment_midi_ages(&mut self) {
-        let seconds_per_sample = 1f32 / self.proj_config.sample_rate as f32;
+        let seconds_per_sample = 1f32 / self.hardware_config.sample_rate as f32;
         self.active_voices
             .iter_mut()
             .zip(self.voice_sources.iter())
@@ -136,7 +136,7 @@ impl NoteTrack {
 
     /// Updates the ages for each voices generated from sequenced `Note` in `active_voices`.
     fn increment_sequenced_ages(&mut self) {
-        let seconds_per_sample = 1f32 / self.proj_config.sample_rate as f32;
+        let seconds_per_sample = 1f32 / self.hardware_config.sample_rate as f32;
         self.active_voices
             .iter_mut()
             .zip(self.voice_sources.iter())

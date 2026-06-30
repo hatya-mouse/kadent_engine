@@ -6,7 +6,7 @@ mod track_impl;
 pub use audio_region::AudioRegion;
 
 use crate::{
-    data_types::ProjectConfig,
+    data_types::{HardwareConfig, ProjectConfig},
     graph::Graph,
     node::builtin::{AudioInputNode, AudioOutputNode},
     track::RegionID,
@@ -25,15 +25,16 @@ pub struct AudioTrack {
     // --- LOCAL BUFFER ---
     local_buffer: Vec<f32>,
 
-    // --- PROJECT CONTEXT ---
+    // --- CONFIGURATION ---
     proj_config: ProjectConfig,
+    hardware_config: HardwareConfig,
 
     // --- MISC ---
     next_region_id: u64,
 }
 
 impl AudioTrack {
-    pub fn new(proj_config: ProjectConfig) -> Self {
+    pub fn new(proj_config: ProjectConfig, hardware_config: HardwareConfig) -> Self {
         // Create a graph with the input and output nodes
         let input_node = AudioInputNode::default();
         let output_node = AudioOutputNode::default();
@@ -41,11 +42,13 @@ impl AudioTrack {
             Box::new(input_node),
             Box::new(output_node),
             proj_config.clone(),
+            hardware_config.clone(),
         );
 
         Self {
             graph,
             proj_config,
+            hardware_config,
             ..Default::default()
         }
     }

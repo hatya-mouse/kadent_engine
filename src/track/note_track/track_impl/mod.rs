@@ -1,9 +1,7 @@
 mod process;
 
-use std::cmp::Reverse;
-
 use crate::{
-    data_types::{ProjectConfig, Ticks, Voice},
+    data_types::{HardwareConfig, ProjectConfig, Ticks, Voice},
     graph::{Graph, error::GraphError},
     mixer::TempoMap,
     track::{
@@ -11,6 +9,7 @@ use crate::{
         note_track::{NoteTrack, VoiceEvent},
     },
 };
+use std::cmp::Reverse;
 
 impl Track for NoteTrack {
     // --- CLONING ---
@@ -55,19 +54,21 @@ impl Track for NoteTrack {
 
     // --- PROJECT CONTEXT UPDARING ---
 
-    fn set_proj_ctx(&mut self, proj_config: &ProjectConfig) {
+    fn set_config(&mut self, proj_config: &ProjectConfig, hardware_config: &HardwareConfig) {
         self.proj_config = proj_config.clone();
-        self.graph.set_proj_ctx(proj_config);
+        self.hardware_config = hardware_config.clone();
+        self.graph.set_config(proj_config, hardware_config);
     }
 
     // --- SEEKING ---
 
     fn seek(&mut self, _playhead: usize) {
         // Clear the voices and events
+        let max_voices = self.hardware_config.max_voices as usize;
         self.voice_events.clear();
-        self.active_voices = vec![Voice::default(); self.proj_config.max_voices];
-        self.voice_sources = vec![None; self.proj_config.max_voices];
-        self.free_voices = (0..self.proj_config.max_voices).collect();
+        self.active_voices = vec![Voice::default(); max_voices];
+        self.voice_sources = vec![None; max_voices];
+        self.free_voices = (0..max_voices).collect();
     }
 
     // --- TRACK PROCESSING ---
@@ -82,22 +83,28 @@ impl Track for NoteTrack {
         self.pre_process_notes();
 
         // Clear the voices and events
+        let max_voices = self.hardware_config.max_voices as usize;
         self.voice_events.clear();
-        self.active_voices = vec![Voice::default(); self.proj_config.max_voices];
-        self.voice_sources = vec![None; self.proj_config.max_voices];
-        self.free_voices = (0..self.proj_config.max_voices).collect();
+        self.active_voices = vec![Voice::default(); max_voices];
+        self.voice_sources = vec![None; max_voices];
+        self.free_voices = (0..max_voices).collect();
 
         // Initialize the local buffer
-        self.local_buffer = vec![0.0; self.proj_config.buffer_size * self.proj_config.channels];
+        self.local_buffer = vec![
+            0.0;
+            self.hardware_config.buffer_size as usize
+                * self.proj_config.channels as usize
+        ];
 
         // Prepare the graph
         self.graph.prepare()
     }
 
     fn process_to_local_buffer(&mut self, is_playing: bool, playhead: usize, tempo_map: &TempoMap) {
+        let buffer_size = self.hardware_config.buffer_size as usize;
         let mut voice_buffer =
-            Vec::with_capacity(self.proj_config.buffer_size * self.proj_config.max_voices);
-        let buffer_end = playhead + self.proj_config.buffer_size;
+            Vec::with_capacity(buffer_size * self.hardware_config.max_voices as usize);
+        let buffer_end = playhead + buffer_size;
 
         // Convert the pending MIDI notes to voice events and push them to the voice_events vector
         let converted_midi_events: Vec<Reverse<VoiceEvent>> = self
