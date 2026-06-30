@@ -1,10 +1,15 @@
 mod process;
 
+use std::cmp::Reverse;
+
 use crate::{
     data_types::{AudioContext, Ticks, Voice},
     graph::{Graph, error::GraphError},
     mixer::TempoMap,
-    track::{RegionID, Track, note_track::NoteTrack},
+    track::{
+        RegionID, Track,
+        note_track::{NoteTrack, VoiceEvent},
+    },
 };
 
 impl Track for NoteTrack {
@@ -94,9 +99,13 @@ impl Track for NoteTrack {
             Vec::with_capacity(self.audio_ctx.buffer_size * self.audio_ctx.max_voices);
         let buffer_end = playhead + self.audio_ctx.buffer_size;
 
-        // Set the midi_playhead to the start index of the next buffer
-        // because the next buffer will start processing from that point
-        self.midi_playhead = buffer_end;
+        // Convert the pending MIDI notes to voice events and push them to the voice_events vector
+        let converted_midi_events: Vec<Reverse<VoiceEvent>> = self
+            .pending_midi_events
+            .drain(..)
+            .map(|midi_event| Reverse(VoiceEvent::from_midi_event(playhead, midi_event)))
+            .collect();
+        self.voice_events.extend(converted_midi_events);
 
         if is_playing {
             // Create voice events from sequenced notes

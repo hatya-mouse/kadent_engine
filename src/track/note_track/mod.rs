@@ -63,8 +63,8 @@ pub struct NoteTrack {
     event_id_to_index: HashMap<VoiceEventID, usize>,
 
     // --- MIDI VOICE INSERTION ---
-    /// The next available sample index for real-time MIDI event to be added.
-    midi_playhead: usize,
+    /// Pending MIDI events to be processied in the next buffer.
+    pending_midi_events: Vec<MidiEvent>,
 
     // --- LOCAL OUTPUT BUFFER ---
     local_buffer: Vec<f32>,
@@ -166,11 +166,6 @@ impl NoteTrack {
     /// Must be called before process() so that changes take effect from sample 0 of the buffer.
     pub fn pass_midi(&mut self, events: &[MidiEvent]) {
         // Push a new voice event to the queue
-        for event in events {
-            self.voice_events.push(Reverse(VoiceEvent::from_midi_event(
-                self.midi_playhead,
-                event.clone(),
-            )));
-        }
+        self.pending_midi_events.extend(events.to_vec());
     }
 }
