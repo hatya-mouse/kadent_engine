@@ -1,5 +1,5 @@
 use crate::{
-    data_types::{HardwareConfig, MidiEvent, ProjectConfig},
+    data_types::{HardwareConfig, MidiEvent},
     mixer::{Mixer, Project},
     thread::{
         AudioCommand, AudioError, AudioResult, export,
@@ -20,8 +20,8 @@ pub(super) fn audio_thread(
     mut midi_cons: ringbuf::HeapCons<MidiEvent>,
     vu_prod: ringbuf::HeapProd<f32>,
     playhead: Arc<AtomicUsize>,
-    proj_config: ProjectConfig,
     initial_project: Project,
+    initial_hardware_config: HardwareConfig,
 ) {
     let (mut command_prod, command_cons) = ringbuf::HeapRb::<AudioCommand>::new(64).split();
     let (mut midi_sub_prod, midi_sub_cons) = ringbuf::HeapRb::<MidiEvent>::new(64).split();
@@ -40,19 +40,15 @@ pub(super) fn audio_thread(
         .default_output_device()
         .expect("Expect a default output device");
 
-    // Create a new hardware config from the output device
-    let hardware_config =
-        HardwareConfig::from_output_device(&device).unwrap_or(HardwareConfig::fallback_config());
-
     // Manage is_playing using Arc
     let is_playing = Arc::new(AtomicBool::new(false));
     let is_playing_clone = is_playing.clone();
 
     // Create an output callback
     let config = cpal::StreamConfig {
-        channels: proj_config.channels,
-        sample_rate: hardware_config.sample_rate as u32,
-        buffer_size: cpal::BufferSize::Fixed(hardware_config.buffer_size as u32),
+        channels: mixer.project.proj_config.channels,
+        sample_rate: initial_hardware_config.sample_rate as u32,
+        buffer_size: cpal::BufferSize::Fixed(initial_hardware_config.buffer_size),
     };
     let callback_ctx = Arc::new(Mutex::new(OutputCallbackContext {
         mixer,
@@ -60,7 +56,6 @@ pub(super) fn audio_thread(
         midi_cons: midi_sub_cons,
         vu_prod,
         pending_project: pending_arc,
-        hardware_config,
     }));
     let callback_state = OutputCallbackState {
         playhead,
@@ -71,6 +66,7 @@ pub(super) fn audio_thread(
         device,
         config,
         callback_state.clone(),
+        initial_hardware_config.clone(),
     ));
 
     if let Some(stream) = stream.as_ref()
@@ -111,11 +107,11 @@ pub(super) fn audio_thread(
                         }
                     });
                 }
-                AudioCommand::ExportAudio(project, hardware_config) => {
+                AudioCommand::ExportAudio(project, export_hardware_config) => {
                     let result_tx = result_tx.clone();
-                    export::spawn_export_thread(result_tx, *project, hardware_config);
+                    export::spawn_export_thread(result_tx, *project, export_hardware_config);
                 }
-                AudioCommand::SetOutputDevice(device) => {
+                AudioCommand::SetOutputDevice(device, new_hardware_config) => {
                     stream.take();
 
                     // Create a new MIDI ring buffer and split it into producer and consumer
@@ -130,6 +126,7 @@ pub(super) fn audio_thread(
                         device,
                         config,
                         callback_state.clone(),
+                        new_hardware_config,
                     ));
 
                     if let Some(stream) = stream.as_ref()

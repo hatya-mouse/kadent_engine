@@ -283,7 +283,13 @@ impl Graph {
 
     /// Processes the graph in the sorted order and writes the result in the output pointer.
     /// The host must pass the project context which is as the same as the one given in the `set_proj_ctx` function.
-    pub fn process(&mut self, inputs: &[*const u8], outputs: &[*mut u8]) {
+    pub fn process(
+        &mut self,
+        inputs: &[*const u8],
+        outputs: &[*mut u8],
+        proj_config: &ProjectConfig,
+        hardware_config: &HardwareConfig,
+    ) {
         // Get the pointer to the output buffer of the input node
         let Some(output_buffers) = self.get_output_ptr(&self.input_id) else {
             return;
@@ -329,12 +335,7 @@ impl Graph {
         };
         // Process the output node
         // Output data will be written to the output pointer
-        output_node.process(
-            &input_buffers,
-            outputs,
-            &self.proj_config,
-            &self.hardware_config,
-        );
+        output_node.process(&input_buffers, outputs, proj_config, hardware_config);
     }
 
     fn get_output_ptr(&self, from: &NodeID) -> Option<Vec<*mut u8>> {

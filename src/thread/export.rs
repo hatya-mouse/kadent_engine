@@ -22,7 +22,7 @@ pub(super) fn spawn_export_thread(
         let channels = project.proj_config.channels as usize;
 
         let mut mixer = Mixer::new(project);
-        mixer.seek(start_sample);
+        mixer.seek(start_sample, &hardware_config);
 
         let total_samples = (end_sample - start_sample) * channels;
         let mut output: Vec<f32> = Vec::with_capacity(total_samples);
@@ -30,7 +30,7 @@ pub(super) fn spawn_export_thread(
         let mut playhead = start_sample;
 
         while playhead < end_sample {
-            mixer.process(true, playhead, &mut buf);
+            mixer.process(true, playhead, &mut buf, &hardware_config);
             let frames = (end_sample - playhead).min(buffer_size);
             output.extend_from_slice(&buf[..frames * channels]);
             playhead += frames;

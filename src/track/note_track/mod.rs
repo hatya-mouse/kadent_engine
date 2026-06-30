@@ -69,10 +69,6 @@ pub struct NoteTrack {
     // --- LOCAL OUTPUT BUFFER ---
     local_buffer: Vec<f32>,
 
-    // --- CONFIGURATIONS ---
-    proj_config: ProjectConfig,
-    hardware_config: HardwareConfig,
-
     // --- MISC ---
     next_region_id: u64,
 }
@@ -91,8 +87,6 @@ impl NoteTrack {
 
         Self {
             graph,
-            proj_config,
-            hardware_config,
             ..Default::default()
         }
     }

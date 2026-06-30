@@ -9,6 +9,8 @@ pub use tempo_event::TempoEvent;
 pub use tempo_map::TempoMap;
 pub use track_id::TrackID;
 
+use crate::data_types::HardwareConfig;
+
 pub struct Mixer {
     // --- PROJECT ---
     pub project: Project,
@@ -25,24 +27,35 @@ impl Mixer {
     // --- PROJECT APPLYING ---
 
     /// Replaces the project with the new one. Tracks inside the project must have been prepared.
-    pub fn apply_project(&mut self, new_project: Project, playhead: usize) {
+    pub fn apply_project(
+        &mut self,
+        new_project: Project,
+        playhead: usize,
+        hardware_config: &HardwareConfig,
+    ) {
         self.project = new_project;
-        self.seek(playhead);
+        self.seek(playhead, hardware_config);
     }
 
     // --- SEEKING ---
 
     /// Tells every tracks that the it will seek.
-    pub fn seek(&mut self, playhead: usize) {
+    pub fn seek(&mut self, playhead: usize, hardware_config: &HardwareConfig) {
         for track in self.project.tracks.values_mut() {
-            track.seek(playhead);
+            track.seek(playhead, &self.project.proj_config, hardware_config);
         }
     }
 
     // --- MIXING PROCESS ---
 
     /// Processes the tracks in the mixer at the specified playhead.
-    pub fn process(&mut self, is_playing: bool, playhead: usize, output: &mut [f32]) {
+    pub fn process(
+        &mut self,
+        is_playing: bool,
+        playhead: usize,
+        output: &mut [f32],
+        hardware_config: &HardwareConfig,
+    ) {
         // Fill the output buffer with zeros before processing
         output.iter_mut().for_each(|s| *s = 0.0);
 
@@ -52,7 +65,13 @@ impl Mixer {
             .values_mut()
             .par_bridge()
             .for_each(|track| {
-                track.process_to_local_buffer(is_playing, playhead, &self.project.tempo_map);
+                track.process_to_local_buffer(
+                    is_playing,
+                    playhead,
+                    &self.project.tempo_map,
+                    &self.project.proj_config,
+                    hardware_config,
+                );
             });
 
         // Add the output of each tracks to the main output buffer

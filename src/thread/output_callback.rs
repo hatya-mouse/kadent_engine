@@ -27,7 +27,6 @@ pub(super) struct OutputCallbackContext {
     pub(super) midi_cons: ringbuf::HeapCons<MidiEvent>,
     pub(super) vu_prod: ringbuf::HeapProd<f32>,
     pub(super) pending_project: Arc<Mutex<Option<Project>>>,
-    pub(super) hardware_config: HardwareConfig,
 }
 
 pub(super) fn output_callback(
@@ -35,6 +34,7 @@ pub(super) fn output_callback(
     device: cpal::Device,
     config: cpal::StreamConfig,
     state: OutputCallbackState,
+    hardware_config: HardwareConfig,
 ) -> cpal::Stream {
     let mut armed_track: Option<TrackID> = None;
     let mut callback_count: u64 = 0;
@@ -59,7 +59,8 @@ pub(super) fn output_callback(
                     .ok()
                     .and_then(|mut pending| pending.take())
                 {
-                    ctx.mixer.apply_project(new_project, current_playhead);
+                    ctx.mixer
+                        .apply_project(new_project, current_playhead, &hardware_config);
                 }
 
                 // Process all pending commands from the audio command ringbuf
@@ -70,7 +71,7 @@ pub(super) fn output_callback(
                                 ctx.mixer.project.tempo_map.ticks_to_samples(target);
                             current_playhead = target_sample;
                             state.playhead.store(target_sample, Ordering::Relaxed);
-                            ctx.mixer.seek(target_sample);
+                            ctx.mixer.seek(target_sample, &hardware_config);
                         }
                         AudioCommand::ArmTrack(track_id) => {
                             armed_track = Some(track_id);
@@ -96,7 +97,8 @@ pub(super) fn output_callback(
 
                 // Process the audio and fill the output buffer
                 let process_start = Instant::now();
-                ctx.mixer.process(is_playing, current_playhead, data);
+                ctx.mixer
+                    .process(is_playing, current_playhead, data, &hardware_config);
                 let process_elapsed = process_start.elapsed();
 
                 // Send the generated waveform data to the main thread for visualization
@@ -116,12 +118,12 @@ pub(super) fn output_callback(
                 if is_playing {
                     state
                         .playhead
-                        .fetch_add(ctx.hardware_config.buffer_size as usize, Ordering::Relaxed);
+                        .fetch_add(hardware_config.buffer_size as usize, Ordering::Relaxed);
                 }
 
                 if callback_count.is_multiple_of(100) {
-                    let deadline_us = ctx.hardware_config.buffer_size as f64
-                        / ctx.hardware_config.sample_rate as f64
+                    let deadline_us = hardware_config.buffer_size as f64
+                        / hardware_config.sample_rate as f64
                         * 1_000_000.0;
                     let total_us = callback_start.elapsed().as_micros() as f64;
                     let process_us = process_elapsed.as_micros() as f64;

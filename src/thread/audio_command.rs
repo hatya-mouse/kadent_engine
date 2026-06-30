@@ -13,7 +13,7 @@ pub enum AudioCommand {
     UpdateProject(Box<Project>),
     ExportAudio(Box<Project>, HardwareConfig),
     ArmTrack(TrackID),
-    SetOutputDevice(Device),
+    SetOutputDevice(Device, HardwareConfig),
     DisarmTrack,
 }
 

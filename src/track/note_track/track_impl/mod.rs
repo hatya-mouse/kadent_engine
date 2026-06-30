@@ -55,16 +55,19 @@ impl Track for NoteTrack {
     // --- PROJECT CONTEXT UPDARING ---
 
     fn set_config(&mut self, proj_config: &ProjectConfig, hardware_config: &HardwareConfig) {
-        self.proj_config = proj_config.clone();
-        self.hardware_config = hardware_config.clone();
         self.graph.set_config(proj_config, hardware_config);
     }
 
     // --- SEEKING ---
 
-    fn seek(&mut self, _playhead: usize) {
+    fn seek(
+        &mut self,
+        _playhead: usize,
+        _proj_config: &ProjectConfig,
+        hardware_config: &HardwareConfig,
+    ) {
         // Clear the voices and events
-        let max_voices = self.hardware_config.max_voices as usize;
+        let max_voices = hardware_config.max_voices as usize;
         self.voice_events.clear();
         self.active_voices = vec![Voice::default(); max_voices];
         self.voice_sources = vec![None; max_voices];
@@ -91,20 +94,24 @@ impl Track for NoteTrack {
         self.free_voices = (0..max_voices).collect();
 
         // Initialize the local buffer
-        self.local_buffer = vec![
-            0.0;
-            self.hardware_config.buffer_size as usize
-                * self.proj_config.channels as usize
-        ];
+        self.local_buffer =
+            vec![0.0; hardware_config.buffer_size as usize * proj_config.channels as usize];
 
         // Prepare the graph
         self.graph.prepare(proj_config, hardware_config)
     }
 
-    fn process_to_local_buffer(&mut self, is_playing: bool, playhead: usize, tempo_map: &TempoMap) {
-        let buffer_size = self.hardware_config.buffer_size as usize;
+    fn process_to_local_buffer(
+        &mut self,
+        is_playing: bool,
+        playhead: usize,
+        tempo_map: &TempoMap,
+        proj_config: &ProjectConfig,
+        hardware_config: &HardwareConfig,
+    ) {
+        let buffer_size = hardware_config.buffer_size as usize;
         let mut voice_buffer =
-            Vec::with_capacity(buffer_size * self.hardware_config.max_voices as usize);
+            Vec::with_capacity(buffer_size * hardware_config.max_voices as usize);
         let buffer_end = playhead + buffer_size;
 
         // Convert the pending MIDI notes to voice events and push them to the voice_events vector
@@ -117,13 +124,17 @@ impl Track for NoteTrack {
 
         if is_playing {
             // Create voice events from sequenced notes
-            self.create_events_from_notes(playhead, tempo_map);
+            self.create_events_from_notes(
+                playhead,
+                tempo_map,
+                hardware_config.buffer_size as usize,
+            );
         }
 
         for sample in playhead..buffer_end {
             // Convert voice events to voices
             // Update active voics for this sample
-            self.consume_events_at_sample(is_playing, sample);
+            self.consume_events_at_sample(is_playing, sample, hardware_config.sample_rate as f32);
             // Extend the voice buffer with the current active voices
             voice_buffer.extend(self.active_voices.clone());
         }
@@ -131,8 +142,12 @@ impl Track for NoteTrack {
         // Get a pointer to the voice buffer
         let input_ptr = voice_buffer.as_ptr() as *const u8;
         // Process the graph
-        self.graph
-            .process(&[input_ptr], &[self.local_buffer.as_mut_ptr() as *mut u8]);
+        self.graph.process(
+            &[input_ptr],
+            &[self.local_buffer.as_mut_ptr() as *mut u8],
+            proj_config,
+            hardware_config,
+        );
     }
 
     fn get_local_buffer(&self) -> &[f32] {

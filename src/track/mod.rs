@@ -37,7 +37,12 @@ pub trait Track: Send + Any {
     fn set_config(&mut self, proj_config: &ProjectConfig, hardware_config: &HardwareConfig);
 
     /// Prepares for the seeking.
-    fn seek(&mut self, playhead: usize);
+    fn seek(
+        &mut self,
+        playhead: usize,
+        proj_config: &ProjectConfig,
+        hardware_config: &HardwareConfig,
+    );
 
     /// Prepares the track for processing.
     fn prepare(
@@ -49,7 +54,14 @@ pub trait Track: Send + Any {
     ) -> Result<(), GraphError>;
 
     /// Processes the track and writes the processed output to the local buffer.
-    fn process_to_local_buffer(&mut self, is_playing: bool, playhead: usize, tempo_map: &TempoMap);
+    fn process_to_local_buffer(
+        &mut self,
+        is_playing: bool,
+        playhead: usize,
+        tempo_map: &TempoMap,
+        proj_config: &ProjectConfig,
+        hardware_config: &HardwareConfig,
+    );
 
     /// Returns the processed audio data in the local buffer.
     fn get_local_buffer(&self) -> &[f32];

@@ -60,7 +60,13 @@ impl Track for AudioTrack {
 
     // --- SEEKING ---
 
-    fn seek(&mut self, _playhead: usize) {}
+    fn seek(
+        &mut self,
+        _playhead: usize,
+        _proj_config: &ProjectConfig,
+        _hardware_config: &HardwareConfig,
+    ) {
+    }
 
     // --- TRACK PROCESSING ---
 
@@ -112,10 +118,11 @@ impl Track for AudioTrack {
         is_playing: bool,
         playhead: usize,
         _tempo_map: &TempoMap,
+        proj_config: &ProjectConfig,
+        hardware_config: &HardwareConfig,
     ) {
         if is_playing {
-            let buffer_size =
-                self.hardware_config.buffer_size as usize * self.proj_config.channels as usize;
+            let buffer_size = hardware_config.buffer_size as usize * proj_config.channels as usize;
             let buffer_end = playhead + buffer_size;
 
             // Create a vector for input buffer
@@ -136,8 +143,12 @@ impl Track for AudioTrack {
             };
 
             // Process the graph
-            self.graph
-                .process(&[input_ptr], &[self.local_buffer.as_mut_ptr() as *mut u8]);
+            self.graph.process(
+                &[input_ptr],
+                &[self.local_buffer.as_mut_ptr() as *mut u8],
+                proj_config,
+                hardware_config,
+            );
         }
     }
 
