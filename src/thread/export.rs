@@ -1,4 +1,5 @@
 use crate::{
+    data_types::HardwareConfig,
     mixer::{Mixer, Project},
     thread::{AudioError, AudioResult},
 };
@@ -7,6 +8,7 @@ use std::{sync::mpsc, thread};
 pub(super) fn spawn_export_thread(
     result_tx: mpsc::Sender<Result<AudioResult, AudioError>>,
     mut project: Project,
+    hardware_config: HardwareConfig,
 ) {
     thread::spawn(move || {
         if let Err(err) = project.prepare() {
@@ -16,8 +18,8 @@ pub(super) fn spawn_export_thread(
 
         let start_sample = project.tempo_map.ticks_to_samples(project.range_start);
         let end_sample = start_sample + project.tempo_map.ticks_to_samples(project.range_duration);
-        let buffer_size = project.audio_ctx.buffer_size;
-        let channels = project.audio_ctx.channels;
+        let buffer_size = hardware_config.buffer_size as usize;
+        let channels = project.proj_config.channels as usize;
 
         let mut mixer = Mixer::new(project);
         mixer.seek(start_sample);

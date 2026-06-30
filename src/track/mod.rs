@@ -5,7 +5,7 @@ mod region_id;
 pub use region_id::RegionID;
 
 use crate::{
-    data_types::{AudioContext, Ticks},
+    data_types::{ProjectConfig, Ticks},
     graph::{Graph, error::GraphError},
     mixer::TempoMap,
 };
@@ -33,8 +33,8 @@ pub trait Track: Send + Any {
     /// Removes the region from the track.
     fn remove_region(&mut self, region_id: &RegionID);
 
-    /// Sets the audio context to the new one.
-    fn set_audio_ctx(&mut self, audio_ctx: &AudioContext);
+    /// Sets the project context to the new one.
+    fn set_proj_ctx(&mut self, proj_config: &ProjectConfig);
 
     /// Prepares for the seeking.
     fn seek(&mut self, playhead: usize);

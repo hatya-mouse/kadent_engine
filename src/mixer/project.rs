@@ -1,5 +1,5 @@
 use crate::{
-    data_types::{AudioContext, Ticks},
+    data_types::{HardwareConfig, ProjectConfig, Ticks},
     graph::error::GraphError,
     mixer::{TempoMap, track_id::TrackID},
     track::Track,
@@ -16,9 +16,9 @@ pub struct Project {
     /// A tempo map to store the tempo changes.
     pub tempo_map: TempoMap,
 
-    // --- AUDIO CONTEXT ---
-    /// An audio context for the project, which stores some configurations.
-    pub audio_ctx: AudioContext,
+    // --- PROJECT CONTEXT ---
+    /// An project context for the project, which stores some configurations.
+    pub proj_config: ProjectConfig,
 
     // --- RANGE ---
     /// The start beats of the range to be exported or played.
@@ -36,15 +36,16 @@ impl Project {
 
     /// Creates a new project with the specified initial bpm.
     pub fn new(
-        audio_ctx: AudioContext,
         bpm: f64,
         range_start: Ticks,
         range_duration: Ticks,
+        proj_config: ProjectConfig,
+        hardware_config: HardwareConfig,
     ) -> Self {
         Self {
             tracks: HashMap::new(),
-            tempo_map: TempoMap::new(audio_ctx.clone(), bpm),
-            audio_ctx,
+            tempo_map: TempoMap::new(bpm, proj_config.clone(), hardware_config.clone()),
+            proj_config,
             range_start,
             range_duration,
             next_track_id: 0,
@@ -53,7 +54,7 @@ impl Project {
 
     /// Creates a new project with the given tempo map.
     pub fn with_tempo_map(
-        audio_ctx: AudioContext,
+        proj_config: ProjectConfig,
         tempo_map: TempoMap,
         range_start: Ticks,
         range_duration: Ticks,
@@ -61,7 +62,7 @@ impl Project {
         Self {
             tracks: HashMap::new(),
             tempo_map,
-            audio_ctx,
+            proj_config,
             range_start,
             range_duration,
             next_track_id: 0,
@@ -84,10 +85,10 @@ impl Project {
 
     // --- TRACK MANAGEMENT ---
 
-    /// Adds a new track to the mixer, setting the audio context to the one in the mixer.
+    /// Adds a new track to the mixer, setting the project context to the one in the mixer.
     pub fn add_track(&mut self, mut track: Box<dyn Track>) -> TrackID {
         let id = self.generate_track_id();
-        track.set_audio_ctx(&self.audio_ctx);
+        track.set_proj_ctx(&self.proj_config);
         self.tracks.insert(id, track);
         id
     }

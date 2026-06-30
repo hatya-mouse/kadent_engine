@@ -1,5 +1,5 @@
 use crate::{
-    data_types::{AudioContext, TypeInfo},
+    data_types::{HardwareConfig, ProjectConfig, TypeInfo},
     graph::error::NodeError,
     node::Node,
 };
@@ -44,15 +44,24 @@ impl Node for AudioInputNode {
         }
     }
 
-    fn update(&mut self, audio_ctx: &AudioContext) {
-        self.data_type = TypeInfo::new(4 * audio_ctx.channels * audio_ctx.buffer_size, 4);
+    fn update(&mut self, proj_config: &ProjectConfig, hardware_config: &HardwareConfig) {
+        self.data_type = TypeInfo::new(
+            4 * proj_config.channels as usize * hardware_config.buffer_size as usize,
+            4,
+        );
     }
 
     fn prepare(&mut self) -> Result<(), Box<dyn NodeError>> {
         Ok(())
     }
 
-    fn process(&mut self, inputs: &[*const u8], outputs: &[*mut u8], _audio_ctx: &AudioContext) {
+    fn process(
+        &mut self,
+        inputs: &[*const u8],
+        outputs: &[*mut u8],
+        _proj_ctx: &ProjectConfig,
+        _device_ctx: &HardwareConfig,
+    ) {
         for (input, output) in inputs.iter().zip(outputs.iter()) {
             unsafe {
                 // Copy the entire input to the output

@@ -1,5 +1,5 @@
 use crate::{
-    data_types::{AudioContext, MidiEvent},
+    data_types::{HardwareConfig, MidiEvent, ProjectConfig},
     mixer::{Mixer, Project},
     thread::{
         AudioCommand, AudioError, AudioResult, export,
@@ -20,7 +20,7 @@ pub(super) fn audio_thread(
     mut midi_cons: ringbuf::HeapCons<MidiEvent>,
     vu_prod: ringbuf::HeapProd<f32>,
     playhead: Arc<AtomicUsize>,
-    audio_ctx: AudioContext,
+    proj_config: ProjectConfig,
     initial_project: Project,
 ) {
     let (mut command_prod, command_cons) = ringbuf::HeapRb::<AudioCommand>::new(64).split();
@@ -40,15 +40,19 @@ pub(super) fn audio_thread(
         .default_output_device()
         .expect("Expect a default output device");
 
+    // Create a new hardware config from the output device
+    let hardware_config =
+        HardwareConfig::from_output_device(&device).unwrap_or(HardwareConfig::fallback_config());
+
     // Manage is_playing using Arc
     let is_playing = Arc::new(AtomicBool::new(false));
     let is_playing_clone = is_playing.clone();
 
     // Create an output callback
     let config = cpal::StreamConfig {
-        channels: audio_ctx.channels as u16,
-        sample_rate: audio_ctx.sample_rate as u32,
-        buffer_size: cpal::BufferSize::Fixed(audio_ctx.buffer_size as u32),
+        channels: proj_config.channels as u16,
+        sample_rate: hardware_config.sample_rate as u32,
+        buffer_size: cpal::BufferSize::Fixed(hardware_config.buffer_size as u32),
     };
     let callback_ctx = Arc::new(Mutex::new(OutputCallbackContext {
         mixer,
@@ -56,6 +60,7 @@ pub(super) fn audio_thread(
         midi_cons: midi_sub_cons,
         vu_prod,
         pending_project: pending_arc,
+        hardware_config,
     }));
     let callback_state = OutputCallbackState {
         playhead,
@@ -106,9 +111,9 @@ pub(super) fn audio_thread(
                         }
                     });
                 }
-                AudioCommand::ExportAudio(project) => {
+                AudioCommand::ExportAudio(project, hardware_config) => {
                     let result_tx = result_tx.clone();
-                    export::spawn_export_thread(result_tx, *project);
+                    export::spawn_export_thread(result_tx, *project, hardware_config);
                 }
                 AudioCommand::SetOutputDevice(device) => {
                     stream.take();

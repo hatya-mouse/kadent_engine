@@ -1,5 +1,5 @@
 use crate::{
-    data_types::MidiEvent,
+    data_types::{HardwareConfig, MidiEvent},
     mixer::{Mixer, Project, TrackID},
     thread::AudioCommand,
     track::note_track::NoteTrack,
@@ -27,6 +27,7 @@ pub(super) struct OutputCallbackContext {
     pub(super) midi_cons: ringbuf::HeapCons<MidiEvent>,
     pub(super) vu_prod: ringbuf::HeapProd<f32>,
     pub(super) pending_project: Arc<Mutex<Option<Project>>>,
+    pub(super) hardware_config: HardwareConfig,
 }
 
 pub(super) fn output_callback(
@@ -99,7 +100,7 @@ pub(super) fn output_callback(
                 let process_elapsed = process_start.elapsed();
 
                 // Send the generated waveform data to the main thread for visualization
-                let channels = ctx.mixer.project.audio_ctx.channels;
+                let channels = ctx.mixer.project.proj_config.channels as usize;
                 for ch in 0..channels {
                     let rms = (data
                         .iter()
@@ -115,13 +116,13 @@ pub(super) fn output_callback(
                 if is_playing {
                     state
                         .playhead
-                        .fetch_add(ctx.mixer.project.audio_ctx.buffer_size, Ordering::Relaxed);
+                        .fetch_add(ctx.hardware_config.buffer_size as usize, Ordering::Relaxed);
                 }
 
                 if callback_count.is_multiple_of(100) {
-                    let audio_ctx = &ctx.mixer.project.audio_ctx;
-                    let deadline_us =
-                        audio_ctx.buffer_size as f64 / audio_ctx.sample_rate as f64 * 1_000_000.0;
+                    let deadline_us = ctx.hardware_config.buffer_size as f64
+                        / ctx.hardware_config.sample_rate as f64
+                        * 1_000_000.0;
                     let total_us = callback_start.elapsed().as_micros() as f64;
                     let process_us = process_elapsed.as_micros() as f64;
                     eprintln!(

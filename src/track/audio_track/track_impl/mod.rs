@@ -1,5 +1,5 @@
 use crate::{
-    data_types::{AudioContext, Ticks},
+    data_types::{ProjectConfig, Ticks},
     graph::{Graph, error::GraphError},
     mixer::TempoMap,
     track::{
@@ -33,11 +33,11 @@ impl Track for AudioTrack {
         self.graph = graph;
     }
 
-    // --- AUDIO CONTEXT UPDARING ---
+    // --- PROJECT CONTEXT UPDARING ---
 
-    fn set_audio_ctx(&mut self, audio_ctx: &AudioContext) {
-        self.audio_ctx = audio_ctx.clone();
-        self.graph.set_audio_ctx(audio_ctx);
+    fn set_proj_ctx(&mut self, proj_config: &ProjectConfig) {
+        self.proj_config = proj_config.clone();
+        self.graph.set_proj_ctx(proj_config);
     }
 
     // --- REGION MODIFICATION ---
@@ -73,16 +73,16 @@ impl Track for AudioTrack {
         // Calculate the total sample number
         // Ceil to a multiple of the buffer size
         let total_frames =
-            duration.div_ceil(self.audio_ctx.buffer_size) * self.audio_ctx.buffer_size;
+            duration.div_ceil(self.proj_config.buffer_size) * self.proj_config.buffer_size;
         // Initialize the processed vector with zeros
-        self.pre_processed = vec![0.0; total_frames * self.audio_ctx.channels];
+        self.pre_processed = vec![0.0; total_frames * self.proj_config.channels];
 
         // Resample the each regions
         for region in self.regions.values() {
             let resampled = tempo_strech(
                 region,
-                self.audio_ctx.sample_rate,
-                self.audio_ctx.channels,
+                self.proj_config.sample_rate,
+                self.proj_config.channels,
                 tempo_map,
             );
 
@@ -111,7 +111,7 @@ impl Track for AudioTrack {
         _tempo_map: &TempoMap,
     ) {
         if is_playing {
-            let buffer_size = self.audio_ctx.buffer_size * self.audio_ctx.channels;
+            let buffer_size = self.proj_config.buffer_size * self.proj_config.channels;
             let buffer_end = playhead + buffer_size;
 
             // Create a vector for input buffer

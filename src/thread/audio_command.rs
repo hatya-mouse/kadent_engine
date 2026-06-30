@@ -1,5 +1,5 @@
 use crate::{
-    data_types::Ticks,
+    data_types::{HardwareConfig, Ticks},
     graph::error::GraphError,
     mixer::{Project, TrackID},
 };
@@ -11,7 +11,7 @@ pub enum AudioCommand {
     Pause,
     Seek(Ticks),
     UpdateProject(Box<Project>),
-    ExportAudio(Box<Project>),
+    ExportAudio(Box<Project>, HardwareConfig),
     ArmTrack(TrackID),
     SetOutputDevice(Device),
     DisarmTrack,

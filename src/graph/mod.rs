@@ -3,7 +3,7 @@ pub mod node_id;
 pub mod topological_sort;
 
 use crate::{
-    data_types::AudioContext,
+    data_types::{HardwareConfig, ProjectConfig},
     graph::{error::GraphError, node_id::NodeID},
     node::Node,
 };
@@ -27,8 +27,10 @@ pub struct Graph {
     zero_buffer: Vec<u8>,
 
     // --- CONFIGURATIONS ---
-    /// The current audio context.
-    audio_ctx: AudioContext,
+    /// The project context for the project.
+    proj_config: ProjectConfig,
+    /// The current hardware context.
+    hardware_config: HardwareConfig,
 
     // --- MISC ---
     next_node_id: u64,
@@ -41,10 +43,12 @@ impl Graph {
     pub fn new(
         input_node: Box<dyn Node>,
         output_node: Box<dyn Node>,
-        audio_ctx: AudioContext,
+        proj_config: ProjectConfig,
+        hardware_config: HardwareConfig,
     ) -> Self {
         let mut graph = Graph {
-            audio_ctx,
+            proj_config,
+            hardware_config,
             ..Default::default()
         };
         // Register the input and output nodes
@@ -116,7 +120,7 @@ impl Graph {
     pub fn add_node(&mut self, mut node: Box<dyn Node>) -> NodeID {
         let id = self.generate_node_id();
         // Update the node
-        node.update(&self.audio_ctx);
+        node.update(&self.proj_config, &self.hardware_config);
         // Insert the node to the map
         self.nodes.insert(id, node);
         id
@@ -125,7 +129,7 @@ impl Graph {
     /// Adds a new node to the graph with the given ID.
     pub fn add_node_with_id(&mut self, id: NodeID, mut node: Box<dyn Node>) {
         // Update the node
-        node.update(&self.audio_ctx);
+        node.update(&self.proj_config, &self.hardware_config);
         // Insert the node to the map
         self.nodes.insert(id, node);
     }
@@ -181,51 +185,19 @@ impl Graph {
         }
     }
 
-    // --- AUDIO CONTEXT UPDATING ---
+    // --- PROJECT CONTEXT UPDATING ---
 
-    /// Sets the audio context to the new one.
-    pub fn set_audio_ctx(&mut self, audio_ctx: &AudioContext) {
-        self.audio_ctx = audio_ctx.clone();
+    /// Sets the project context to the new one.
+    pub fn set_ctx(&mut self, proj_config: &ProjectConfig, hardware_config: &HardwareConfig) {
+        self.proj_config = proj_config.clone();
 
         // Call update functions for every nodes
         for node in self.nodes.values_mut() {
-            node.update(audio_ctx);
+            node.update(proj_config, hardware_config);
         }
     }
 
     // --- GRAPH PROCESSING ---
-
-    fn allocate_output_buffer(
-        node_id: &NodeID,
-        node: &dyn Node,
-        output_buffers: &mut HashMap<(NodeID, usize), Vec<u8>>,
-        node_outputs: &mut HashMap<NodeID, Vec<*mut u8>>,
-        audio_ctx: &AudioContext,
-    ) -> Result<(), GraphError> {
-        // Ensure an output buffer exists even for nodes with no outputs
-        node_outputs.entry(*node_id).or_default();
-        // Create a buffer for all outputs
-        for output_index in 0..node.get_output_len() {
-            let output_type = node
-                .get_output_type(output_index)
-                .ok_or(GraphError::OutputTypeUnavailable(*node_id, output_index))?;
-            let buffer = vec![0u8; output_type.size * audio_ctx.buffer_size];
-
-            // Insert the output buffer to the output_buffers
-            output_buffers.insert((*node_id, output_index), buffer);
-
-            // Register the pointer to the buffer in the node_outputs map
-            let Some(ptr) = output_buffers
-                .get_mut(&(*node_id, output_index))
-                .map(|b| b.as_mut_ptr())
-            else {
-                return Err(GraphError::OutputBufferNotFound(*node_id, output_index));
-            };
-            node_outputs.entry(*node_id).or_default().push(ptr);
-        }
-
-        Ok(())
-    }
 
     /// Prepares the graph for processing. The host must call this function before start processing, or it may lead to undefined behavior.
     pub fn prepare(&mut self) -> Result<(), GraphError> {
@@ -234,12 +206,12 @@ impl Graph {
 
         // Allocate output buffer for the input node
         if let Some(input_node) = self.nodes.get_mut(&self.input_id) {
-            Self::allocate_output_buffer(
+            allocate_output_buffer(
                 &self.input_id,
                 input_node.as_ref(),
                 &mut self.output_buffers,
                 &mut self.node_outputs,
-                &self.audio_ctx,
+                &self.hardware_config,
             )?;
         }
 
@@ -248,12 +220,12 @@ impl Graph {
                 // Call prepare function for every nodes
                 node.prepare().map_err(GraphError::NodeError)?;
 
-                Self::allocate_output_buffer(
+                allocate_output_buffer(
                     node_id,
                     node.as_ref(),
                     &mut self.output_buffers,
                     &mut self.node_outputs,
-                    &self.audio_ctx,
+                    &self.hardware_config,
                 )?;
             }
         }
@@ -268,7 +240,7 @@ impl Graph {
                 max_size = max_size.max(type_info.size);
             }
         }
-        self.zero_buffer = vec![0u8; max_size * self.audio_ctx.buffer_size];
+        self.zero_buffer = vec![0u8; max_size * self.hardware_config.buffer_size as usize];
 
         // Build node_inputs from edges
         for edge in &self.edges {
@@ -304,7 +276,7 @@ impl Graph {
     }
 
     /// Processes the graph in the sorted order and writes the result in the output pointer.
-    /// The host must pass the audio context which is as the same as the one given in the `set_audio_ctx` function.
+    /// The host must pass the project context which is as the same as the one given in the `set_proj_ctx` function.
     pub fn process(&mut self, inputs: &[*const u8], outputs: &[*mut u8]) {
         // Get the pointer to the output buffer of the input node
         let Some(output_buffers) = self.get_output_ptr(&self.input_id) else {
@@ -314,7 +286,12 @@ impl Graph {
             return;
         };
         // Process the input node
-        input_node.process(inputs, &output_buffers, &self.audio_ctx);
+        input_node.process(
+            inputs,
+            &output_buffers,
+            &self.proj_config,
+            &self.hardware_config,
+        );
 
         for node_id in self.sorted_nodes.clone() {
             // Get the pointer to the input buffer of the node
@@ -328,7 +305,12 @@ impl Graph {
 
             // Pass the pointers and process
             if let Some(node) = self.nodes.get_mut(&node_id) {
-                node.process(&input_buffers, &output_buffers, &self.audio_ctx);
+                node.process(
+                    &input_buffers,
+                    &output_buffers,
+                    &self.proj_config,
+                    &self.hardware_config,
+                );
             }
         }
 
@@ -341,7 +323,12 @@ impl Graph {
         };
         // Process the output node
         // Output data will be written to the output pointer
-        output_node.process(&input_buffers, outputs, &self.audio_ctx);
+        output_node.process(
+            &input_buffers,
+            outputs,
+            &self.proj_config,
+            &self.hardware_config,
+        );
     }
 
     fn get_output_ptr(&self, from: &NodeID) -> Option<Vec<*mut u8>> {
@@ -354,3 +341,35 @@ impl Graph {
 }
 
 unsafe impl Send for Graph {}
+
+fn allocate_output_buffer(
+    node_id: &NodeID,
+    node: &dyn Node,
+    output_buffers: &mut HashMap<(NodeID, usize), Vec<u8>>,
+    node_outputs: &mut HashMap<NodeID, Vec<*mut u8>>,
+    hardware_config: &HardwareConfig,
+) -> Result<(), GraphError> {
+    // Ensure an output buffer exists even for nodes with no outputs
+    node_outputs.entry(*node_id).or_default();
+    // Create a buffer for all outputs
+    for output_index in 0..node.get_output_len() {
+        let output_type = node
+            .get_output_type(output_index)
+            .ok_or(GraphError::OutputTypeUnavailable(*node_id, output_index))?;
+        let buffer = vec![0u8; output_type.size * hardware_config.buffer_size as usize];
+
+        // Insert the output buffer to the output_buffers
+        output_buffers.insert((*node_id, output_index), buffer);
+
+        // Register the pointer to the buffer in the node_outputs map
+        let Some(ptr) = output_buffers
+            .get_mut(&(*node_id, output_index))
+            .map(|b| b.as_mut_ptr())
+        else {
+            return Err(GraphError::OutputBufferNotFound(*node_id, output_index));
+        };
+        node_outputs.entry(*node_id).or_default().push(ptr);
+    }
+
+    Ok(())
+}

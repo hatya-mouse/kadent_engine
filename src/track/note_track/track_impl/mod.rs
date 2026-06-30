@@ -3,7 +3,7 @@ mod process;
 use std::cmp::Reverse;
 
 use crate::{
-    data_types::{AudioContext, Ticks, Voice},
+    data_types::{ProjectConfig, Ticks, Voice},
     graph::{Graph, error::GraphError},
     mixer::TempoMap,
     track::{
@@ -53,11 +53,11 @@ impl Track for NoteTrack {
         self.regions.remove(region_id);
     }
 
-    // --- AUDIO CONTEXT UPDARING ---
+    // --- PROJECT CONTEXT UPDARING ---
 
-    fn set_audio_ctx(&mut self, audio_ctx: &AudioContext) {
-        self.audio_ctx = audio_ctx.clone();
-        self.graph.set_audio_ctx(audio_ctx);
+    fn set_proj_ctx(&mut self, proj_config: &ProjectConfig) {
+        self.proj_config = proj_config.clone();
+        self.graph.set_proj_ctx(proj_config);
     }
 
     // --- SEEKING ---
@@ -65,9 +65,9 @@ impl Track for NoteTrack {
     fn seek(&mut self, _playhead: usize) {
         // Clear the voices and events
         self.voice_events.clear();
-        self.active_voices = vec![Voice::default(); self.audio_ctx.max_voices];
-        self.voice_sources = vec![None; self.audio_ctx.max_voices];
-        self.free_voices = (0..self.audio_ctx.max_voices).collect();
+        self.active_voices = vec![Voice::default(); self.proj_config.max_voices];
+        self.voice_sources = vec![None; self.proj_config.max_voices];
+        self.free_voices = (0..self.proj_config.max_voices).collect();
     }
 
     // --- TRACK PROCESSING ---
@@ -83,12 +83,12 @@ impl Track for NoteTrack {
 
         // Clear the voices and events
         self.voice_events.clear();
-        self.active_voices = vec![Voice::default(); self.audio_ctx.max_voices];
-        self.voice_sources = vec![None; self.audio_ctx.max_voices];
-        self.free_voices = (0..self.audio_ctx.max_voices).collect();
+        self.active_voices = vec![Voice::default(); self.proj_config.max_voices];
+        self.voice_sources = vec![None; self.proj_config.max_voices];
+        self.free_voices = (0..self.proj_config.max_voices).collect();
 
         // Initialize the local buffer
-        self.local_buffer = vec![0.0; self.audio_ctx.buffer_size * self.audio_ctx.channels];
+        self.local_buffer = vec![0.0; self.proj_config.buffer_size * self.proj_config.channels];
 
         // Prepare the graph
         self.graph.prepare()
@@ -96,8 +96,8 @@ impl Track for NoteTrack {
 
     fn process_to_local_buffer(&mut self, is_playing: bool, playhead: usize, tempo_map: &TempoMap) {
         let mut voice_buffer =
-            Vec::with_capacity(self.audio_ctx.buffer_size * self.audio_ctx.max_voices);
-        let buffer_end = playhead + self.audio_ctx.buffer_size;
+            Vec::with_capacity(self.proj_config.buffer_size * self.proj_config.max_voices);
+        let buffer_end = playhead + self.proj_config.buffer_size;
 
         // Convert the pending MIDI notes to voice events and push them to the voice_events vector
         let converted_midi_events: Vec<Reverse<VoiceEvent>> = self

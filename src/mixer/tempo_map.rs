@@ -1,5 +1,5 @@
 use crate::{
-    data_types::{AudioContext, Ticks},
+    data_types::{HardwareConfig, ProjectConfig, Ticks},
     mixer::TempoEvent,
 };
 
@@ -7,27 +7,33 @@ use crate::{
 pub struct TempoMap {
     /// The tempo events in the tempo map, sorted by their ticks.
     pub events: Vec<TempoEvent>,
-    audio_ctx: AudioContext,
+    proj_config: ProjectConfig,
+    hardware_config: HardwareConfig,
 }
 
 impl TempoMap {
     // --- NEW ---
 
     /// Creates a new TempoMap.
-    pub fn new(audio_ctx: AudioContext, initial_bpm: f64) -> Self {
+    pub fn new(
+        initial_bpm: f64,
+        proj_config: ProjectConfig,
+        hardware_config: HardwareConfig,
+    ) -> Self {
         let mut map = Self {
             events: vec![TempoEvent::new(Ticks(0), initial_bpm, 0)],
-            audio_ctx,
+            proj_config,
+            hardware_config,
         };
         map.calculate_sample_offsets(0);
         map
     }
 
-    // --- AUDIO CONTEXT ---
+    // --- PROJECT CONTEXT ---
 
-    /// Sets the audio context to the new one and calculate the sample offsets of all events in the TempoMap.
-    pub fn set_audio_ctx(&mut self, audio_ctx: AudioContext) {
-        self.audio_ctx = audio_ctx;
+    /// Sets the project context to the new one and calculate the sample offsets of all events in the TempoMap.
+    pub fn set_proj_ctx(&mut self, proj_config: ProjectConfig) {
+        self.proj_config = proj_config;
         // Calculate the offsets of all events
         self.calculate_sample_offsets(0);
     }
@@ -88,8 +94,8 @@ impl TempoMap {
     /// Recalculates the offsets of the events after the given index,
     /// storing the results in the events vector.
     fn calculate_sample_offsets(&mut self, after_index: usize) {
-        let sample_rate = self.audio_ctx.sample_rate;
-        let resolution = self.audio_ctx.resolution;
+        let sample_rate = self.hardware_config.sample_rate;
+        let resolution = self.proj_config.resolution;
         for i in after_index..self.events.len() {
             if i == 0 {
                 self.events[i].sample_offset = 0;
@@ -98,8 +104,8 @@ impl TempoMap {
                 let tick_diff = (self.events[i].ticks.0 - prev.ticks.0) as u128;
                 // Calculate as u128 to avoid wrapping around to avoid calculation error
                 // when the ticks difference is large enough
-                let samples = (60u128 * tick_diff * self.audio_ctx.sample_rate as u128)
-                    / (self.audio_ctx.resolution as u128 * prev.bpm as u128);
+                let samples = (60u128 * tick_diff * self.hardware_config.sample_rate as u128)
+                    / (self.proj_config.resolution as u128 * prev.bpm as u128);
                 self.events[i].sample_offset = prev.sample_offset + samples as usize;
             }
             // Sync the fixed-point factor used by ticks_to_samples
@@ -138,8 +144,9 @@ impl TempoMap {
         // Calculate the elapsed samples from the event's sample offset
         let elapsed_samples = samples - event.sample_offset;
         // Convert the elapsed samples to ticks
-        let elapsed_ticks = (elapsed_samples as f64 * self.audio_ctx.resolution as f64 * event.bpm)
-            / (60f64 * self.audio_ctx.sample_rate as f64);
+        let elapsed_ticks =
+            (elapsed_samples as f64 * self.proj_config.resolution as f64 * event.bpm)
+                / (60f64 * self.hardware_config.sample_rate as f64);
         event.ticks + Ticks(elapsed_ticks.round() as i64)
     }
 }

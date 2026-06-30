@@ -8,7 +8,7 @@ pub use audio_command::{AudioCommand, AudioError, AudioResult};
 pub use handle::AudioThreadHandle;
 
 use crate::{
-    data_types::{AudioContext, MidiEvent},
+    data_types::{MidiEvent, ProjectConfig},
     mixer::Project,
 };
 use ringbuf::{HeapRb, traits::Split};
@@ -21,7 +21,7 @@ pub struct AudioThread;
 
 impl AudioThread {
     pub fn spawn(
-        audio_ctx: AudioContext,
+        proj_config: ProjectConfig,
         mut initial_project: Project,
     ) -> (AudioThreadHandle, ringbuf::HeapProd<MidiEvent>) {
         // MPSC channels to send commands to the processing threads from the host.
@@ -34,7 +34,8 @@ impl AudioThread {
         // A ringbuf to send MIDI events to the audio thread from the midi thread.
         let (midi_producer, midi_consumer) = HeapRb::<MidiEvent>::new(64).split();
         // A ringbuf to send the calculated VU levels to the host.
-        let (vu_producer, vu_consumer) = HeapRb::<f32>::new(audio_ctx.channels * 2).split();
+        let (vu_producer, vu_consumer) =
+            HeapRb::<f32>::new(proj_config.channels as usize * 2).split();
 
         // --- MAIN AUDIO THREAD ---
         thread::spawn(move || {
@@ -49,7 +50,7 @@ impl AudioThread {
                 midi_consumer,
                 vu_producer,
                 playhead_clone,
-                audio_ctx,
+                proj_config,
                 initial_project,
             );
         });

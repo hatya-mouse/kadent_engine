@@ -1,7 +1,7 @@
 use std::ptr::copy_nonoverlapping;
 
 use crate::{
-    data_types::{AudioContext, TypeInfo},
+    data_types::{HardwareConfig, ProjectConfig, TypeInfo},
     graph::error::NodeError,
     node::Node,
 };
@@ -45,16 +45,25 @@ impl Node for AudioOutputNode {
         None
     }
 
-    fn update(&mut self, audio_ctx: &AudioContext) {
+    fn update(&mut self, proj_config: &ProjectConfig, hardware_config: &HardwareConfig) {
         // Multiply by 4 because each sample is a 32-bit float (4 bytes)
-        self.data_type = TypeInfo::new(4 * audio_ctx.channels * audio_ctx.buffer_size, 4);
+        self.data_type = TypeInfo::new(
+            4 * proj_config.channels as usize * hardware_config.buffer_size as usize,
+            4,
+        );
     }
 
     fn prepare(&mut self) -> Result<(), Box<dyn NodeError>> {
         Ok(())
     }
 
-    fn process(&mut self, inputs: &[*const u8], outputs: &[*mut u8], _audio_ctx: &AudioContext) {
+    fn process(
+        &mut self,
+        inputs: &[*const u8],
+        outputs: &[*mut u8],
+        _proj_ctx: &ProjectConfig,
+        _device_ctx: &HardwareConfig,
+    ) {
         for (input, output) in inputs.iter().zip(outputs.iter()) {
             unsafe {
                 // Write the input data to the output buffer
