@@ -201,7 +201,11 @@ impl Graph {
     // --- GRAPH PROCESSING ---
 
     /// Prepares the graph for processing. The host must call this function before start processing, or it may lead to undefined behavior.
-    pub fn prepare(&mut self) -> Result<(), GraphError> {
+    pub fn prepare(
+        &mut self,
+        proj_config: &ProjectConfig,
+        hardware_config: &HardwareConfig,
+    ) -> Result<(), GraphError> {
         // First sort the graph
         self.sort_graph()?;
 
@@ -219,7 +223,8 @@ impl Graph {
         for node_id in &self.sorted_nodes {
             if let Some(node) = self.nodes.get_mut(node_id) {
                 // Call prepare function for every nodes
-                node.prepare().map_err(GraphError::NodeError)?;
+                node.prepare(proj_config, hardware_config)
+                    .map_err(GraphError::NodeError)?;
 
                 allocate_output_buffer(
                     node_id,

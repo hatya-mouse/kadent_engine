@@ -32,7 +32,11 @@ pub trait Node: Send + Any {
     fn update(&mut self, proj_config: &ProjectConfig, hardware_config: &HardwareConfig);
 
     /// Prepares the node for processing.
-    fn prepare(&mut self) -> Result<(), Box<dyn NodeError>>;
+    fn prepare(
+        &mut self,
+        proj_config: &ProjectConfig,
+        hardware_config: &HardwareConfig,
+    ) -> Result<(), Box<dyn NodeError>>;
 
     /// Processes the given input pointer and writes the output to the output pointer.
     fn process(

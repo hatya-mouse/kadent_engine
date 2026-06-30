@@ -42,9 +42,10 @@ pub trait Track: Send + Any {
     /// Prepares the track for processing.
     fn prepare(
         &mut self,
-        start: usize,
         duration: usize,
         tempo_map: &TempoMap,
+        proj_config: &ProjectConfig,
+        hardware_config: &HardwareConfig,
     ) -> Result<(), GraphError>;
 
     /// Processes the track and writes the processed output to the local buffer.

@@ -66,12 +66,13 @@ impl Track for AudioTrack {
 
     fn prepare(
         &mut self,
-        _start: usize,
         duration: usize,
         tempo_map: &TempoMap,
+        proj_config: &ProjectConfig,
+        hardware_config: &HardwareConfig,
     ) -> Result<(), GraphError> {
-        let buffer_size = self.hardware_config.buffer_size as usize;
-        let channels = self.proj_config.channels as usize;
+        let buffer_size = hardware_config.buffer_size as usize;
+        let channels = proj_config.channels as usize;
 
         // Calculate the total sample number
         // Ceil to a multiple of the buffer size
@@ -103,7 +104,7 @@ impl Track for AudioTrack {
         self.init_local_buffers();
 
         // Then prepare the graph
-        self.graph.prepare()
+        self.graph.prepare(proj_config, hardware_config)
     }
 
     fn process_to_local_buffer(

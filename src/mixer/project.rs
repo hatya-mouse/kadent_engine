@@ -117,12 +117,16 @@ impl Project {
     /// `start` and `duration` indicates the range to be processed.
     pub fn prepare(&mut self) -> Result<(), GraphError> {
         // Convert the start and duration beats to samples
-        let start_samples = self.tempo_map.ticks_to_samples(self.range_start);
         let duration_samples = self.tempo_map.ticks_to_samples(self.range_duration);
 
         // Prepare the tracks one by one
         for track in self.tracks.values_mut() {
-            track.prepare(start_samples, duration_samples, &self.tempo_map)?;
+            track.prepare(
+                duration_samples,
+                &self.tempo_map,
+                &self.proj_config,
+                &self.hardware_config,
+            )?;
         }
 
         Ok(())

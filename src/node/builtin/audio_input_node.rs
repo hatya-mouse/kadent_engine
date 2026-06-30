@@ -51,7 +51,11 @@ impl Node for AudioInputNode {
         );
     }
 
-    fn prepare(&mut self) -> Result<(), Box<dyn NodeError>> {
+    fn prepare(
+        &mut self,
+        _proj_config: &ProjectConfig,
+        _hardware_config: &HardwareConfig,
+    ) -> Result<(), Box<dyn NodeError>> {
         Ok(())
     }
 

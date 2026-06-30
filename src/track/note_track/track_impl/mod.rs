@@ -75,15 +75,16 @@ impl Track for NoteTrack {
 
     fn prepare(
         &mut self,
-        _start: usize,
         _duration: usize,
         _tempo_map: &TempoMap,
+        proj_config: &ProjectConfig,
+        hardware_config: &HardwareConfig,
     ) -> Result<(), GraphError> {
         // Pre-process the sequenced notes into processed notes
         self.pre_process_notes();
 
         // Clear the voices and events
-        let max_voices = self.hardware_config.max_voices as usize;
+        let max_voices = hardware_config.max_voices as usize;
         self.voice_events.clear();
         self.active_voices = vec![Voice::default(); max_voices];
         self.voice_sources = vec![None; max_voices];
@@ -97,7 +98,7 @@ impl Track for NoteTrack {
         ];
 
         // Prepare the graph
-        self.graph.prepare()
+        self.graph.prepare(proj_config, hardware_config)
     }
 
     fn process_to_local_buffer(&mut self, is_playing: bool, playhead: usize, tempo_map: &TempoMap) {
