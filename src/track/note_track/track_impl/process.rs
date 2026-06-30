@@ -186,7 +186,6 @@ impl NoteTrack {
                             self.voice_sources[new_index] = Some(VoiceSource::SequencedNote);
                         }
                         VoiceEventID::RealtimeMidi { .. } => {
-                            println!("Processing Realtime Midi Voice Event: {:#?}", event);
                             self.voice_sources[new_index] = Some(VoiceSource::RealtimeMidi);
                         }
                     }

@@ -167,20 +167,11 @@ impl NoteTrack {
     pub fn pass_midi(&mut self, events: &[MidiEvent]) {
         // Push a new voice event to the queue
         for event in events {
-            match event {
-                MidiEvent::NoteOn { .. } => {
-                    self.voice_events.push(Reverse(VoiceEvent::from_midi_event(
-                        self.midi_playhead,
-                        event.clone(),
-                    )));
-                }
-                MidiEvent::NoteOff { .. } => {
-                    self.voice_events.push(Reverse(VoiceEvent::from_midi_event(
-                        self.midi_playhead,
-                        event.clone(),
-                    )));
-                }
-            }
+            println!("Processing Realtime Midi Event: {:#?}", event);
+            self.voice_events.push(Reverse(VoiceEvent::from_midi_event(
+                self.midi_playhead,
+                event.clone(),
+            )));
         }
     }
 }
