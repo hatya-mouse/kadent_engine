@@ -1,5 +1,5 @@
 use crate::{
-    data_types::{HardwareConfig, MidiEvent},
+    data_types::MidiEvent,
     mixer::{Mixer, Project},
     thread::{
         AudioCommand, AudioError, AudioResult, export,
@@ -21,15 +21,9 @@ pub(super) fn audio_thread(
     vu_prod: ringbuf::HeapProd<f32>,
     playhead: Arc<AtomicUsize>,
     initial_project: Project,
-    initial_hardware_config: HardwareConfig,
 ) {
     let (mut command_prod, command_cons) = ringbuf::HeapRb::<AudioCommand>::new(64).split();
     let (mut midi_sub_prod, midi_sub_cons) = ringbuf::HeapRb::<MidiEvent>::new(64).split();
-
-    // Create a mixer with the given initial project
-    let pending_project = Arc::new(Mutex::new(None));
-    let pending_arc = Arc::clone(&pending_project);
-    let mixer = Mixer::new(initial_project);
 
     // Create a generation variable to track the latest prepared project
     let generation = Arc::new(AtomicUsize::new(0));
@@ -45,11 +39,18 @@ pub(super) fn audio_thread(
     let is_playing_clone = is_playing.clone();
 
     // Create an output callback
-    let config = cpal::StreamConfig {
-        channels: mixer.project.proj_config.channels,
-        sample_rate: initial_hardware_config.sample_rate as u32,
-        buffer_size: cpal::BufferSize::Fixed(initial_hardware_config.buffer_size),
+    let stream_config = cpal::StreamConfig {
+        channels: initial_project.proj_config.channels,
+        sample_rate: initial_project.hardware_config.sample_rate as u32,
+        buffer_size: cpal::BufferSize::Fixed(initial_project.hardware_config.buffer_size),
     };
+
+    // Create a mixer with the given initial project
+    let initial_hardware_config = initial_project.hardware_config.clone();
+    let pending_project = Arc::new(Mutex::new(None));
+    let pending_arc = Arc::clone(&pending_project);
+    let mixer = Mixer::new(initial_project);
+
     let callback_ctx = Arc::new(Mutex::new(OutputCallbackContext {
         mixer,
         command_cons,
@@ -64,7 +65,7 @@ pub(super) fn audio_thread(
     let mut stream = Some(output_callback(
         callback_ctx.clone(),
         device,
-        config,
+        stream_config,
         callback_state.clone(),
         initial_hardware_config.clone(),
     ));
@@ -124,7 +125,7 @@ pub(super) fn audio_thread(
                     stream = Some(output_callback(
                         callback_ctx.clone(),
                         device,
-                        config,
+                        stream_config,
                         callback_state.clone(),
                         new_hardware_config,
                     ));
