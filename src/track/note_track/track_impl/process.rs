@@ -20,10 +20,6 @@ impl NoteTrack {
             for (_, note) in region.notes.iter() {
                 // If the start of the note is after the end of the region
                 // ...or if the end of the note is before the start of the region, skip it
-                println!(
-                    "Note Start: {}, Note Duration: {}",
-                    note.start, note.duration
-                );
                 let note_end = note.start + note.duration;
                 if note.start > region.duration || note_end < Ticks(0) {
                     continue;
@@ -190,6 +186,7 @@ impl NoteTrack {
                             self.voice_sources[new_index] = Some(VoiceSource::SequencedNote);
                         }
                         VoiceEventID::RealtimeMidi { .. } => {
+                            println!("Processing Realtime Midi Voice Event: {:#?}", event);
                             self.voice_sources[new_index] = Some(VoiceSource::RealtimeMidi);
                         }
                     }
