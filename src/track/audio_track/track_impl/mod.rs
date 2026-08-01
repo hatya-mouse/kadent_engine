@@ -64,13 +64,8 @@ impl Track for AudioTrack {
 
     // --- TRACK PROCESSING ---
 
-    fn prepare(&mut self, start: usize, tempo_map: &TempoMap) -> Result<(), GraphError> {
-        // Calculate the total sample number
-        // Ceil to a multiple of the buffer size
-        self.playback_start_samples = start;
-
+    fn prepare(&mut self, tempo_map: &TempoMap) -> Result<(), GraphError> {
         // Calculate the total number of frames to process
-        let start_index = start * self.audio_ctx.channels;
         let end_ticks = self
             .regions
             .values()
@@ -78,9 +73,8 @@ impl Track for AudioTrack {
             .max()
             .unwrap_or(Ticks(0));
         let end_samples = tempo_map.ticks_to_samples(end_ticks);
-        let duration = end_samples.saturating_sub(start);
         let total_samples =
-            duration.div_ceil(self.audio_ctx.buffer_size) * self.audio_ctx.buffer_size;
+            end_samples.div_ceil(self.audio_ctx.buffer_size) * self.audio_ctx.buffer_size;
 
         // Initialize the processed vector with zeros
         self.pre_processed = vec![0.0; total_samples * self.audio_ctx.channels];
@@ -97,28 +91,11 @@ impl Track for AudioTrack {
             // Calculate the start sample index
             let region_start_index =
                 tempo_map.ticks_to_samples(region.start) * self.audio_ctx.channels;
-            // Calculate the start index in the pre_processed buffer
-            // If the start_index is smaller than the region_start_index, we need to start copying the from the beginning of the region
-            //
-            // 0      start_index                          Start of the region  End of the region
-            // |      |<-- start_index_in_pre_processed -->[                    ]
-            // |      |<-- pre_processed starts from here
-            let start_index_in_pre_processed = region_start_index.saturating_sub(start_index);
 
-            // Add the resampled samples
-            // Calculate the start index to copy from the resampled buffer
-            // to copy the data efficiently when the start_index is larger than the region_start_index
-            //
-            // 0         region_start_index start_index                       End of the region
-            // |         [<-- copy_start -->|<-- Copy from here to the end -->]
-            let available = self
-                .pre_processed
-                .len()
-                .saturating_sub(start_index_in_pre_processed);
-            let copy_start = start_index.saturating_sub(region_start_index);
+            let available = self.pre_processed.len().saturating_sub(region_start_index);
             let copy_end = resampled.len().min(available);
-            for (i, sample) in resampled[copy_start..copy_end].iter().enumerate() {
-                self.pre_processed[start_index_in_pre_processed + i] += sample;
+            for (i, sample) in resampled[..copy_end].iter().enumerate() {
+                self.pre_processed[region_start_index + i] += sample;
             }
         }
 
@@ -136,8 +113,7 @@ impl Track for AudioTrack {
         _tempo_map: &TempoMap,
     ) {
         if is_playing {
-            let buffer_start =
-                (playhead.saturating_sub(self.playback_start_samples)) * self.audio_ctx.channels;
+            let buffer_start = playhead * self.audio_ctx.channels;
             let buffer_size = self.audio_ctx.buffer_size * self.audio_ctx.channels;
             let buffer_end = buffer_start + buffer_size;
 

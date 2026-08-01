@@ -111,12 +111,9 @@ impl Project {
 
     /// Prepares the tracks in the mixer for the playback.
     pub fn prepare(&mut self) -> Result<(), GraphError> {
-        // Convert the start and duration beats to samples
-        let start_samples = self.tempo_map.ticks_to_samples(self.range_start);
-
         // Prepare the tracks one by one
         for track in self.tracks.values_mut() {
-            track.prepare(start_samples, &self.tempo_map)?;
+            track.prepare(&self.tempo_map)?;
         }
 
         Ok(())

@@ -72,7 +72,7 @@ impl Track for NoteTrack {
 
     // --- TRACK PROCESSING ---
 
-    fn prepare(&mut self, _start: usize, _tempo_map: &TempoMap) -> Result<(), GraphError> {
+    fn prepare(&mut self, _tempo_map: &TempoMap) -> Result<(), GraphError> {
         // Pre-process the sequenced notes into processed notes
         self.pre_process_notes();
 

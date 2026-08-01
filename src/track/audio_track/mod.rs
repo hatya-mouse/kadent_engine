@@ -22,9 +22,6 @@ pub struct AudioTrack {
     regions: HashMap<RegionID, AudioRegion>,
     pre_processed: Vec<f32>,
 
-    // --- THE PLAYBACK START INDEX ---
-    playback_start_samples: usize,
-
     // --- LOCAL BUFFER ---
     local_buffer: Vec<f32>,
 
@@ -49,7 +46,6 @@ impl AudioTrack {
         Self {
             graph,
             audio_ctx,
-            playback_start_samples: 0,
             ..Default::default()
         }
     }
