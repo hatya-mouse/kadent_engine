@@ -11,12 +11,11 @@ pub fn resample_channels(
     // Calculate the ratio of the source and the target sample rate
     let ratio_fp = (source_sample_rate << 32) / target_sample_rate;
     let source_samples_fp = (source_samples as u64) << 32;
-    let source_sample_rate_fp = source_sample_rate << 32;
-    let target_sample_rate_fp = target_sample_rate << 32;
 
     // Calculate the length of the output array (interleaved) and fill it with zeros
     let full_len = target_channels
-        * ((source_samples_fp * target_sample_rate_fp / source_sample_rate_fp) >> 32) as usize;
+        * (source_samples as u128 * target_sample_rate as u128 / source_sample_rate as u128)
+            as usize;
     let mut output = vec![0f32; full_len];
 
     for target_channel in 0..target_channels.min(source_channels) {
