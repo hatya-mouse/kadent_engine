@@ -133,7 +133,8 @@ impl Track for AudioTrack {
         _tempo_map: &TempoMap,
     ) {
         if is_playing {
-            let buffer_start = (playhead - self.playback_start_samples) * self.audio_ctx.channels;
+            let buffer_start =
+                (playhead.saturating_sub(self.playback_start_samples)) * self.audio_ctx.channels;
             let buffer_size = self.audio_ctx.buffer_size * self.audio_ctx.channels;
             let buffer_end = buffer_start + buffer_size;
 

@@ -49,6 +49,7 @@ impl AudioTrack {
         Self {
             graph,
             audio_ctx,
+            playback_start_samples: 0,
             ..Default::default()
         }
     }
