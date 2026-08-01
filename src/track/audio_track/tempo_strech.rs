@@ -5,6 +5,7 @@ use crate::{
 };
 
 /// Strech the audio data using the given tempo map, not preserving the pitch.
+/// The returned audio data will start at the beginning of the region.
 pub fn tempo_strech(
     src_region: &AudioRegion,
     target_sample_rate: u64,
