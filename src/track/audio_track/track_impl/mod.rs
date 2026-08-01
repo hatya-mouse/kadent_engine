@@ -114,7 +114,7 @@ impl Track for AudioTrack {
         if is_playing {
             let playhead_index = playhead * self.audio_ctx.channels;
             let buffer_size = self.audio_ctx.buffer_size * self.audio_ctx.channels;
-            let buffer_end = playhead + buffer_size;
+            let buffer_end = playhead_index + buffer_size;
 
             // Create a vector for input buffer
             let mut input_vec: Vec<f32>;
