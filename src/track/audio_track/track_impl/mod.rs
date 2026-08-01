@@ -137,6 +137,10 @@ impl Track for AudioTrack {
             // Process the graph
             self.graph
                 .process(&[input_ptr], &[self.local_buffer.as_mut_ptr() as *mut u8]);
+        } else {
+            // Mixer::process adds local_buffer into the output every callback regardless of
+            // is_playing, so it must be cleared here to prevent the previous buffer from being played repeatedly
+            self.local_buffer.fill(0.0);
         }
     }
 
