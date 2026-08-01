@@ -111,7 +111,10 @@ impl Track for AudioTrack {
             //
             // 0         region_start_index start_index                       End of the region
             // |         [<-- copy_start -->|<-- Copy from here to the end -->]
-            let available = self.pre_processed.len().saturating_sub(region_start_index);
+            let available = self
+                .pre_processed
+                .len()
+                .saturating_sub(start_index_in_pre_processed);
             let copy_start = start_index.saturating_sub(region_start_index);
             let copy_end = resampled.len().min(available);
             for (i, sample) in resampled[copy_start..copy_end].iter().enumerate() {
