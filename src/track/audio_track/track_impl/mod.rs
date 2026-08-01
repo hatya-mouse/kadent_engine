@@ -64,20 +64,28 @@ impl Track for AudioTrack {
 
     // --- TRACK PROCESSING ---
 
-    fn prepare(
-        &mut self,
-        _start: usize,
-        duration: usize,
-        tempo_map: &TempoMap,
-    ) -> Result<(), GraphError> {
+    fn prepare(&mut self, start: usize, tempo_map: &TempoMap) -> Result<(), GraphError> {
         // Calculate the total sample number
         // Ceil to a multiple of the buffer size
-        let total_frames =
-            duration.div_ceil(self.audio_ctx.buffer_size) * self.audio_ctx.buffer_size;
-        // Initialize the processed vector with zeros
-        self.pre_processed = vec![0.0; total_frames * self.audio_ctx.channels];
+        self.playback_start_samples = start;
 
-        // Resample the each regions
+        // Calculate the total number of frames to process
+        let start_index = start * self.audio_ctx.channels;
+        let end_ticks = self
+            .regions
+            .values()
+            .map(|r| r.start + r.duration)
+            .max()
+            .unwrap_or(Ticks(0));
+        let end_samples = tempo_map.ticks_to_samples(end_ticks);
+        let duration = end_samples - start;
+        let total_samples =
+            duration.div_ceil(self.audio_ctx.buffer_size) * self.audio_ctx.buffer_size;
+
+        // Initialize the processed vector with zeros
+        self.pre_processed = vec![0.0; total_samples * self.audio_ctx.channels];
+
+        // Resample the each regions and add them to the pre_processed buffer
         for region in self.regions.values() {
             let resampled = tempo_strech(
                 region,
@@ -86,9 +94,10 @@ impl Track for AudioTrack {
                 tempo_map,
             );
 
-            // Calculate the start sample index of the buffer
-            let region_start_index =
-                tempo_map.ticks_to_samples(region.start) * self.audio_ctx.channels;
+            // Calculate the start sample index in the pre_processed buffer
+            let region_start_index = (tempo_map.ticks_to_samples(region.start)
+                * self.audio_ctx.channels)
+                .saturating_sub(start_index);
 
             // Add the resampled samples
             let available = self.pre_processed.len().saturating_sub(region_start_index);
@@ -112,23 +121,23 @@ impl Track for AudioTrack {
         _tempo_map: &TempoMap,
     ) {
         if is_playing {
-            let playhead_index = playhead * self.audio_ctx.channels;
+            let buffer_start = (playhead - self.playback_start_samples) * self.audio_ctx.channels;
             let buffer_size = self.audio_ctx.buffer_size * self.audio_ctx.channels;
-            let buffer_end = playhead_index + buffer_size;
+            let buffer_end = buffer_start + buffer_size;
 
             // Create a vector for input buffer
             let mut input_vec: Vec<f32>;
 
             let input_ptr = if buffer_end <= self.pre_processed.len() {
                 // Get a pointer to the input buffer
-                self.pre_processed[playhead_index..buffer_end].as_ptr() as *const u8
+                self.pre_processed[buffer_start..buffer_end].as_ptr() as *const u8
             } else {
                 // If the audio data for the buffer is partially unavailable fill the rest with zero
-                let available = self.pre_processed.len().saturating_sub(playhead_index);
+                let available = self.pre_processed.len().saturating_sub(buffer_start);
                 input_vec = vec![0f32; buffer_size];
                 if available > 0 {
                     input_vec[..available].copy_from_slice(
-                        &self.pre_processed[playhead_index..playhead_index + available],
+                        &self.pre_processed[buffer_start..buffer_start + available],
                     );
                 }
                 input_vec.as_ptr() as *const u8

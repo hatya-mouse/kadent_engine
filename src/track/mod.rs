@@ -40,12 +40,7 @@ pub trait Track: Send + Any {
     fn seek(&mut self, playhead: usize);
 
     /// Prepares the track for processing.
-    fn prepare(
-        &mut self,
-        start: usize,
-        duration: usize,
-        tempo_map: &TempoMap,
-    ) -> Result<(), GraphError>;
+    fn prepare(&mut self, start: usize, tempo_map: &TempoMap) -> Result<(), GraphError>;
 
     /// Processes the track and writes the processed output to the local buffer.
     fn process_to_local_buffer(&mut self, is_playing: bool, playhead: usize, tempo_map: &TempoMap);
