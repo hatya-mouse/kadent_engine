@@ -78,7 +78,7 @@ impl Track for AudioTrack {
             .max()
             .unwrap_or(Ticks(0));
         let end_samples = tempo_map.ticks_to_samples(end_ticks);
-        let duration = end_samples - start;
+        let duration = end_samples.saturating_sub(start);
         let total_samples =
             duration.div_ceil(self.audio_ctx.buffer_size) * self.audio_ctx.buffer_size;
 
