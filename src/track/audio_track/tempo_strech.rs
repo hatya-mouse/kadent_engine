@@ -48,11 +48,21 @@ pub fn tempo_strech(
     }
 
     // Loop over the sections and resample the audio
+    // `src_region.data` is indexed relative to the region's own start, not to the absolute project time,
+    // so section ticks must be offset by the region's start sample
+    let region_start_sample = tempo_map.ticks_to_samples(src_region.start);
+
     let mut output_data = Vec::new();
     for section in sections {
         // Calculate the relative start and the end index
-        let src_start_sample = tempo_map.ticks_to_samples(section.0).min(src_region.frames);
-        let src_end_sample = tempo_map.ticks_to_samples(section.1).min(src_region.frames);
+        let src_start_sample = tempo_map
+            .ticks_to_samples(section.0)
+            .saturating_sub(region_start_sample)
+            .min(src_region.frames);
+        let src_end_sample = tempo_map
+            .ticks_to_samples(section.1)
+            .saturating_sub(region_start_sample)
+            .min(src_region.frames);
 
         let src_start_index = src_start_sample * src_region.channels as usize;
         let src_end_index = src_end_sample * src_region.channels as usize;
