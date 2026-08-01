@@ -1,3 +1,5 @@
+mod process;
+
 use crate::{
     data_types::{AudioContext, Ticks},
     graph::{Graph, error::GraphError},
@@ -7,8 +9,6 @@ use crate::{
         audio_track::{AudioTrack, tempo_strech::tempo_strech},
     },
 };
-
-mod process;
 
 impl Track for AudioTrack {
     // --- CLONING ---
