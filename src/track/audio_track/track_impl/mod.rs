@@ -112,6 +112,7 @@ impl Track for AudioTrack {
         _tempo_map: &TempoMap,
     ) {
         if is_playing {
+            let playhead_index = playhead * self.audio_ctx.channels;
             let buffer_size = self.audio_ctx.buffer_size * self.audio_ctx.channels;
             let buffer_end = playhead + buffer_size;
 
@@ -120,14 +121,15 @@ impl Track for AudioTrack {
 
             let input_ptr = if buffer_end <= self.pre_processed.len() {
                 // Get a pointer to the input buffer
-                self.pre_processed[playhead..buffer_end].as_ptr() as *const u8
+                self.pre_processed[playhead_index..buffer_end].as_ptr() as *const u8
             } else {
                 // If the audio data for the buffer is partially unavailable fill the rest with zero
-                let available = self.pre_processed.len().saturating_sub(playhead);
+                let available = self.pre_processed.len().saturating_sub(playhead_index);
                 input_vec = vec![0f32; buffer_size];
                 if available > 0 {
-                    input_vec[..available]
-                        .copy_from_slice(&self.pre_processed[playhead..playhead + available]);
+                    input_vec[..available].copy_from_slice(
+                        &self.pre_processed[playhead_index..playhead_index + available],
+                    );
                 }
                 input_vec.as_ptr() as *const u8
             };
