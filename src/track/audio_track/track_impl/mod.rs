@@ -94,16 +94,16 @@ impl Track for AudioTrack {
                 tempo_map,
             );
 
-            // Calculate the start sample index in the pre_processed buffer
-            let region_start_index = (tempo_map.ticks_to_samples(region.start)
-                * self.audio_ctx.channels)
-                .saturating_sub(start_index);
+            // Calculate the start sample index
+            let region_start_index =
+                tempo_map.ticks_to_samples(region.start) * self.audio_ctx.channels;
+            let start_index_in_pre_processed = region_start_index.saturating_sub(start_index);
 
             // Add the resampled samples
             let available = self.pre_processed.len().saturating_sub(region_start_index);
             let copy_len = resampled.len().min(available);
             for (i, sample) in resampled[..copy_len].iter().enumerate() {
-                self.pre_processed[region_start_index + i] += sample;
+                self.pre_processed[start_index_in_pre_processed + i] += sample;
             }
         }
 
