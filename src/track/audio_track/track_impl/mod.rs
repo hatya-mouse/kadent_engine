@@ -10,6 +10,7 @@ use crate::{
     },
 };
 
+#[typetag::serde]
 impl Track for AudioTrack {
     // --- CLONING ---
 

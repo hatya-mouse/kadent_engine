@@ -21,13 +21,14 @@ use crate::{
         },
     },
 };
+use serde::{Deserialize, Serialize};
 use std::{
     cmp::Reverse,
     collections::{BinaryHeap, HashMap, VecDeque},
 };
 use voice_event::VoiceEvent;
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Serialize, Deserialize)]
 pub struct NoteTrack {
     // --- GRAPH ---
     graph: Graph,
@@ -37,39 +38,49 @@ pub struct NoteTrack {
     regions: HashMap<RegionID, NoteRegion>,
     /// The processed note data, which has been processed by the modifiers.
     /// This is sorted by the start time of the notes, and is used for generating voice events.
+    #[serde(skip)]
     processed_notes: Vec<ProcessedNote>,
 
     // --- MODIFIERS ---
+    #[serde(skip)]
     modifiers: HashMap<NoteModifierID, Box<dyn NoteModifier>>,
 
     // --- VOICE EVENTS ---
     /// Voice Events such as NoteOn and NoteOff.
     /// Used for generating actual `Voice`.
+    #[serde(skip)]
     voice_events: BinaryHeap<Reverse<VoiceEvent>>,
 
     // --- EVENT -> VOICE PROCESSING ---
     /// *Active* voices in the currently processing frame. The length must be as the same as `max_voices`.
+    #[serde(skip)]
     active_voices: Vec<Voice>,
     /// The sources of each voices with each corresponding to voices in `active_voices`. (MIDI or SequencedNote)
+    #[serde(skip)]
     voice_sources: Vec<Option<VoiceSource>>,
     /// Indices where the corresponding slots are vacant and available for new voice.
     /// Indices are of `active_voices`.
     ///
     /// It is recommended to call `pop_front` to get a free voice, and call `push_back` to register a free slot.
+    #[serde(skip)]
     free_voices: VecDeque<usize>,
 
     // --- ACTIVE VOICES MANAGEMENT ---
     /// Map from `VoiceEventID` to `active_voices`, used to get the corresponding voice when processing NoteOff.
+    #[serde(skip)]
     event_id_to_index: HashMap<VoiceEventID, usize>,
 
     // --- MIDI VOICE INSERTION ---
     /// Pending MIDI events to be processied in the next buffer.
+    #[serde(skip)]
     pending_midi_events: Vec<MidiEvent>,
 
     // --- LOCAL OUTPUT BUFFER ---
+    #[serde(skip)]
     local_buffer: Vec<f32>,
 
     // --- AUDIO CONTEXT ---
+    #[serde(skip)]
     audio_ctx: AudioContext,
 
     // --- MISC ---

@@ -3,14 +3,17 @@ use crate::{
     graph::error::NodeError,
     node::Node,
 };
+use serde::{Deserialize, Serialize};
 use std::ptr::copy_nonoverlapping;
 
 /// An empty node that just writes the `process` input to the node output.
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Serialize, Deserialize)]
 pub struct NoteInputNode {
+    #[serde(skip)]
     data_type: TypeInfo,
 }
 
+#[typetag::serde]
 impl Node for NoteInputNode {
     fn clone_box(&self) -> Box<dyn Node> {
         Box::new(self.clone())

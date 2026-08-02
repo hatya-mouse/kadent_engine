@@ -4,9 +4,10 @@ use crate::{
     mixer::{TempoMap, track_id::TrackID},
     track::Track,
 };
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Project {
     // --- TRACKS ---
     /// Tracks in the project.

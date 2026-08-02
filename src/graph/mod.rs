@@ -7,27 +7,35 @@ use crate::{
     graph::{error::GraphError, node_id::NodeID},
     node::Node,
 };
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Serialize, Deserialize)]
 pub struct Graph {
     // --- GRAPH STRUCTURE ---
     nodes: HashMap<NodeID, Box<dyn Node>>,
     edges: Vec<(NodeID, usize, NodeID, usize)>,
+    #[serde(skip)]
     adjacency: HashMap<NodeID, Vec<NodeID>>,
     input_id: NodeID,
     output_id: NodeID,
 
     // --- PROCESSING DATA ---
+    #[serde(skip)]
     sorted_nodes: Vec<NodeID>,
+    #[serde(skip)]
     output_buffers: HashMap<(NodeID, usize), Vec<u8>>,
-    // Pointers to the edge buffer in the input order
+    // Pointers to the edge buffer in the input order.
+    #[serde(skip)]
     node_inputs: HashMap<NodeID, Vec<*const u8>>,
+    #[serde(skip)]
     node_outputs: HashMap<NodeID, Vec<*mut u8>>,
+    #[serde(skip)]
     zero_buffer: Vec<u8>,
 
     // --- CONFIGURATIONS ---
     /// The current audio context.
+    #[serde(skip)]
     audio_ctx: AudioContext,
 
     // --- MISC ---
