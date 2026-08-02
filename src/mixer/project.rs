@@ -98,7 +98,7 @@ impl Project {
     }
 
     /// Returns a reference to the track.
-    pub fn get_track(&mut self, id: &TrackID) -> Option<&dyn Track> {
+    pub fn get_track(&self, id: &TrackID) -> Option<&dyn Track> {
         self.tracks.get(id).map(|track| &**track)
     }
 
