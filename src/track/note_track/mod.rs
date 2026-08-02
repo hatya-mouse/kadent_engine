@@ -108,6 +108,10 @@ impl NoteTrack {
         &self.regions
     }
 
+    pub fn take_region(&mut self, id: &RegionID) -> Option<NoteRegion> {
+        self.regions.remove(id)
+    }
+
     // --- REGION ADDITION ---
 
     pub fn set_next_region_id(&mut self, next_id: u64) {
