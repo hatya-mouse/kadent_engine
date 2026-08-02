@@ -11,7 +11,6 @@ use crate::{
 };
 use std::any::Any;
 
-#[typetag::serde(tag = "type")]
 pub trait Track: Send + Any {
     /// Clones the track.
     fn clone_box(&self) -> Box<dyn Track>;

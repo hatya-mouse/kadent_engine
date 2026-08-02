@@ -11,25 +11,21 @@ use crate::{
     node::builtin::{AudioInputNode, AudioOutputNode},
     track::RegionID,
 };
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Default, Clone, Serialize, Deserialize)]
+#[derive(Default, Clone)]
 pub struct AudioTrack {
     // --- GRAPH ---
     graph: Graph,
 
     // --- RAW AUDIO DATA ---
     regions: HashMap<RegionID, AudioRegion>,
-    #[serde(skip)]
     pre_processed: Vec<f32>,
 
     // --- LOCAL BUFFER ---
-    #[serde(skip)]
     local_buffer: Vec<f32>,
 
     // --- AUDIO CONTEXT ---
-    #[serde(skip)]
     audio_ctx: AudioContext,
 
     // --- MISC ---
@@ -66,10 +62,6 @@ impl AudioTrack {
 
     pub fn get_all_regions(&self) -> &HashMap<RegionID, AudioRegion> {
         &self.regions
-    }
-
-    pub fn take_region(&mut self, id: &RegionID) -> Option<AudioRegion> {
-        self.regions.remove(id)
     }
 
     // --- REGION ADDITION ---

@@ -5,16 +5,13 @@ use crate::{
     graph::error::NodeError,
     node::Node,
 };
-use serde::{Deserialize, Serialize};
 
 /// An empty node that just writes the `process` input to the node output.
-#[derive(Default, Clone, Serialize, Deserialize)]
+#[derive(Default, Clone)]
 pub struct AudioOutputNode {
-    #[serde(skip)]
     data_type: TypeInfo,
 }
 
-#[typetag::serde]
 impl Node for AudioOutputNode {
     fn clone_box(&self) -> Box<dyn Node> {
         Box::new(self.clone())

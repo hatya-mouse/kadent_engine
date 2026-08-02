@@ -6,7 +6,6 @@ use crate::{
 };
 use std::any::Any;
 
-#[typetag::serde(tag = "type")]
 pub trait Node: Send + Any {
     /// Clones the node.
     fn clone_box(&self) -> Box<dyn Node>;

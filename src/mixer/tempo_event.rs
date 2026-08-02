@@ -8,7 +8,6 @@ pub struct TempoEvent {
     pub(super) bpm: f64,
     pub(super) sample_offset: usize,
     /// Cached factor for converting ticks to samples, calculated from the audio context.
-    #[serde(skip)]
     samples_per_tick_fp: u64,
 }
 

@@ -2,13 +2,11 @@ use crate::{
     data_types::{AudioContext, Ticks},
     mixer::TempoEvent,
 };
-use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Default)]
 pub struct TempoMap {
     /// The tempo events in the tempo map, sorted by their ticks.
     pub events: Vec<TempoEvent>,
-    #[serde(skip)]
     audio_ctx: AudioContext,
 }
 

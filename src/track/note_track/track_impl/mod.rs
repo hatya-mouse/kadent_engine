@@ -12,7 +12,6 @@ use crate::{
     },
 };
 
-#[typetag::serde]
 impl Track for NoteTrack {
     // --- CLONING ---
 
