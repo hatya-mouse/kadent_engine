@@ -3,7 +3,7 @@ pub mod node_id;
 pub mod topological_sort;
 
 use crate::{
-    data_types::AudioContext,
+    data_types::{AudioContext, PlaybackContext},
     graph::{error::GraphError, node_id::NodeID},
     node::Node,
 };
@@ -200,7 +200,7 @@ impl Graph {
         node: &dyn Node,
         output_buffers: &mut HashMap<(NodeID, usize), Vec<u8>>,
         node_outputs: &mut HashMap<NodeID, Vec<*mut u8>>,
-        audio_ctx: &AudioContext,
+        playback_ctx: &PlaybackContext,
     ) -> Result<(), GraphError> {
         // Ensure an output buffer exists even for nodes with no outputs
         node_outputs.entry(*node_id).or_default();
@@ -209,7 +209,7 @@ impl Graph {
             let output_type = node
                 .get_output_type(output_index)
                 .ok_or(GraphError::OutputTypeUnavailable(*node_id, output_index))?;
-            let buffer = vec![0u8; output_type.size * audio_ctx.buffer_size];
+            let buffer = vec![0u8; output_type.size * playback_ctx.buffer_size];
 
             // Insert the output buffer to the output_buffers
             output_buffers.insert((*node_id, output_index), buffer);
@@ -228,7 +228,7 @@ impl Graph {
     }
 
     /// Prepares the graph for processing. The host must call this function before start processing, or it may lead to undefined behavior.
-    pub fn prepare(&mut self) -> Result<(), GraphError> {
+    pub fn prepare(&mut self, playback_ctx: &PlaybackContext) -> Result<(), GraphError> {
         // First sort the graph
         self.sort_graph()?;
 
@@ -239,7 +239,7 @@ impl Graph {
                 input_node.as_ref(),
                 &mut self.output_buffers,
                 &mut self.node_outputs,
-                &self.audio_ctx,
+                playback_ctx,
             )?;
         }
 
@@ -253,7 +253,7 @@ impl Graph {
                     node.as_ref(),
                     &mut self.output_buffers,
                     &mut self.node_outputs,
-                    &self.audio_ctx,
+                    playback_ctx,
                 )?;
             }
         }
@@ -268,7 +268,7 @@ impl Graph {
                 max_size = max_size.max(type_info.size);
             }
         }
-        self.zero_buffer = vec![0u8; max_size * self.audio_ctx.buffer_size];
+        self.zero_buffer = vec![0u8; max_size * playback_ctx.buffer_size];
 
         // Build node_inputs from edges
         for edge in &self.edges {
