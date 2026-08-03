@@ -6,7 +6,7 @@ use crate::{
         output_callback::{OutputCallbackContext, OutputCallbackState, output_callback},
     },
 };
-use cpal::traits::{HostTrait, StreamTrait};
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use ringbuf::traits::{Consumer, Producer, Split};
 use std::sync::{
     Arc, Mutex,
@@ -45,7 +45,7 @@ pub(super) fn audio_thread(
     let is_playing_clone = is_playing.clone();
 
     // Create an output callback
-    let config = cpal::StreamConfig {
+    let mut project_config = cpal::StreamConfig {
         channels: audio_ctx.channels as u16,
         sample_rate: audio_ctx.sample_rate as u32,
         buffer_size: cpal::BufferSize::Fixed(audio_ctx.buffer_size as u32),
@@ -61,10 +61,14 @@ pub(super) fn audio_thread(
         playhead,
         is_playing: is_playing_clone,
     };
+    let output_config = device
+        .default_output_config()
+        .map(|config| config.config())
+        .unwrap_or(project_config);
     let mut stream = Some(output_callback(
         callback_ctx.clone(),
         device,
-        config,
+        output_config,
         callback_state.clone(),
     ));
 
@@ -87,6 +91,14 @@ pub(super) fn audio_thread(
                     is_playing.store(false, Ordering::Release);
                 }
                 AudioCommand::UpdateProject(mut new_project) => {
+                    project_config = cpal::StreamConfig {
+                        channels: new_project.audio_ctx.channels as u16,
+                        sample_rate: new_project.audio_ctx.sample_rate as u32,
+                        buffer_size: cpal::BufferSize::Fixed(
+                            new_project.audio_ctx.buffer_size as u32,
+                        ),
+                    };
+
                     // Increment the current generation by one to mark it as the latest
                     let current_gen = generation.fetch_add(1, Ordering::SeqCst) + 1;
                     let gen_arc = Arc::clone(&generation);
@@ -120,10 +132,14 @@ pub(super) fn audio_thread(
 
                     callback_ctx.lock().unwrap().midi_cons = new_sub_cons;
 
+                    let output_config = device
+                        .default_output_config()
+                        .map(|config| config.config())
+                        .unwrap_or(project_config);
                     stream = Some(output_callback(
                         callback_ctx.clone(),
                         device,
-                        config,
+                        output_config,
                         callback_state.clone(),
                     ));
 
