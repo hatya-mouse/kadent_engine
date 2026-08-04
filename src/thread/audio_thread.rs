@@ -1,6 +1,6 @@
 use crate::{
     data_types::{AudioContext, MidiEvent},
-    mixer::{Mixer, Project},
+    mixer::Mixer,
     thread::{
         AudioCommand, AudioError, AudioResult, export,
         output_callback::{OutputCallbackContext, OutputCallbackState, output_callback},
@@ -21,17 +21,18 @@ pub(super) fn audio_thread(
     vu_prod: ringbuf::HeapProd<f32>,
     playhead: Arc<AtomicUsize>,
     audio_ctx: AudioContext,
-    initial_project: Project,
+    initial_mixer: Mixer,
 ) {
     let (mut command_prod, command_cons) = ringbuf::HeapRb::<AudioCommand>::new(64).split();
     let (mut midi_sub_prod, midi_sub_cons) = ringbuf::HeapRb::<MidiEvent>::new(64).split();
 
     // Create a mixer with the given initial project
-    let pending_project = Arc::new(Mutex::new(None));
-    let pending_arc = Arc::clone(&pending_project);
-    let mixer = Mixer::new(initial_project);
-
-    // Create a generation variable to track the latest prepared project
+    let pending_mixer = Arc::new(Mutex::new(None));
+    // Create an Arc to return the mixer from the output callback to this audio thread
+    let mixer_return = Arc::new(Mutex::new(None));
+    // Manage is_playing using Arc
+    let is_playing = Arc::new(AtomicBool::new(false));
+    // Create a generation variable to keep track of the latest prepared mixer
     let generation = Arc::new(AtomicUsize::new(0));
 
     // Get a cpal device
@@ -40,10 +41,6 @@ pub(super) fn audio_thread(
         .default_output_device()
         .expect("Expect a default output device");
 
-    // Manage is_playing using Arc
-    let is_playing = Arc::new(AtomicBool::new(false));
-    let is_playing_clone = is_playing.clone();
-
     // Create an output callback
     let mut project_config = cpal::StreamConfig {
         channels: audio_ctx.channels as u16,
@@ -51,15 +48,15 @@ pub(super) fn audio_thread(
         buffer_size: cpal::BufferSize::Fixed(audio_ctx.buffer_size as u32),
     };
     let callback_ctx = Arc::new(Mutex::new(OutputCallbackContext {
-        mixer,
         command_cons,
         midi_cons: midi_sub_cons,
         vu_prod,
-        pending_project: pending_arc,
+        pending_mixer: pending_mixer.clone(),
+        mixer_return: mixer_return.clone(),
     }));
     let callback_state = OutputCallbackState {
         playhead,
-        is_playing: is_playing_clone,
+        is_playing: is_playing.clone(),
     };
     let output_config = device
         .default_output_config()
@@ -70,6 +67,7 @@ pub(super) fn audio_thread(
         device,
         output_config,
         callback_state.clone(),
+        initial_mixer,
     ));
 
     if let Some(stream) = stream.as_ref()
@@ -101,20 +99,23 @@ pub(super) fn audio_thread(
 
                     // Increment the current generation by one to mark it as the latest
                     let current_gen = generation.fetch_add(1, Ordering::SeqCst) + 1;
-                    let gen_arc = Arc::clone(&generation);
-                    let pending_arc = Arc::clone(&pending_project);
-                    let result_tx = result_tx.clone();
                     std::thread::spawn(move || {
-                        // Prepare the project before applying the project
-                        if let Err(err) = new_project.prepare() {
-                            result_tx.send(Err(AudioError::GraphError(err))).unwrap();
-                            return;
-                        }
+                        let gen_arc = Arc::clone(&generation);
+                        let pending_arc = Arc::clone(&pending_mixer);
+                        let result_tx = result_tx.clone();
 
-                        // Check if the project is the latest one
-                        if gen_arc.load(Ordering::SeqCst) == current_gen {
-                            // Send the new project to the audio playback thread
-                            *pending_arc.lock().unwrap() = Some(*new_project);
+                        // Prepare the project before applying the project
+                        match new_project.prepare() {
+                            Ok(mixer) => {
+                                // Check if the mixer is the latest one
+                                if gen_arc.load(Ordering::SeqCst) == current_gen {
+                                    // Send the prepared mixer to the audio playback thread
+                                    *pending_arc.lock().unwrap() = Some(mixer);
+                                }
+                            }
+                            Err(err) => {
+                                result_tx.send(Err(AudioError::GraphError(err))).unwrap();
+                            }
                         }
                     });
                 }
@@ -123,7 +124,7 @@ pub(super) fn audio_thread(
                     export::spawn_export_thread(result_tx, *project);
                 }
                 AudioCommand::SetOutputDevice(device) => {
-                    stream.take();
+                    stream = None;
 
                     // Create a new MIDI ring buffer and split it into producer and consumer
                     let (new_sub_prod, new_sub_cons) =
@@ -132,15 +133,18 @@ pub(super) fn audio_thread(
 
                     callback_ctx.lock().unwrap().midi_cons = new_sub_cons;
 
+                    // Create a config
                     let output_config = device
                         .default_output_config()
                         .map(|config| config.config())
                         .unwrap_or(project_config);
+                    // Then get the latest mixer to pass to the new output callback
                     stream = Some(output_callback(
                         callback_ctx.clone(),
                         device,
                         output_config,
                         callback_state.clone(),
+                        latest_mixer,
                     ));
 
                     if let Some(stream) = stream.as_ref()

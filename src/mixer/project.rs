@@ -1,7 +1,7 @@
 use crate::{
     data_types::{AudioContext, Ticks},
     graph::error::GraphError,
-    mixer::{TempoMap, track_id::TrackID},
+    mixer::{Mixer, TempoMap, track_id::TrackID},
     track::Track,
 };
 use std::collections::HashMap;
@@ -110,12 +110,12 @@ impl Project {
     // --- MIXING PREPARATION ---
 
     /// Prepares the tracks in the mixer for the playback.
-    pub fn prepare(&mut self) -> Result<(), GraphError> {
+    pub fn prepare(mut self) -> Result<Mixer, GraphError> {
         // Prepare the tracks one by one
         for track in self.tracks.values_mut() {
             track.prepare(&self.tempo_map)?;
         }
 
-        Ok(())
+        Ok(Mixer::new(self))
     }
 }
