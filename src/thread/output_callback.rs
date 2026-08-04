@@ -1,6 +1,6 @@
 use crate::{
     data_types::MidiEvent,
-    mixer::{Mixer, Project, TrackID},
+    mixer::{Mixer, TrackID},
     thread::AudioCommand,
     track::note_track::NoteTrack,
 };
@@ -21,11 +21,10 @@ pub(super) struct OutputCallbackState {
 }
 
 pub(super) struct OutputCallbackContext {
-    pub(super) mixer: Mixer,
     pub(super) command_cons: HeapCons<AudioCommand>,
     pub(super) midi_cons: ringbuf::HeapCons<MidiEvent>,
     pub(super) vu_prod: ringbuf::HeapProd<f32>,
-    pub(super) pending_project: Arc<Mutex<Option<Project>>>,
+    pub(super) latest_mixer: Arc<Mutex<Option<Mixer>>>,
 }
 
 pub(super) fn output_callback(
@@ -33,6 +32,7 @@ pub(super) fn output_callback(
     device: cpal::Device,
     config: cpal::StreamConfig,
     state: OutputCallbackState,
+    initial_mixer: Mixer,
 ) -> cpal::Stream {
     let mut armed_track: Option<TrackID> = None;
 
@@ -43,28 +43,25 @@ pub(super) fn output_callback(
                 let Ok(mut ctx) = ctx.try_lock() else {
                     return;
                 };
-
-                let mut current_playhead = state.playhead.load(Ordering::Relaxed);
-
-                // Get the project without blocking
-                if let Some(new_project) = ctx
-                    .pending_project
+                let Some(mixer) = ctx
+                    .latest_mixer
                     .try_lock()
                     .ok()
-                    .and_then(|mut pending| pending.take())
-                {
-                    ctx.mixer.apply_project(new_project, current_playhead);
-                }
+                    .and_then(|mut mixer| mixer.as_mut())
+                else {
+                    return;
+                };
+
+                let mut current_playhead = state.playhead.load(Ordering::Relaxed);
 
                 // Process all pending commands from the audio command ringbuf
                 while let Some(command) = ctx.command_cons.try_pop() {
                     match command {
                         AudioCommand::Seek(target) => {
-                            let target_sample =
-                                ctx.mixer.project.tempo_map.ticks_to_samples(target);
+                            let target_sample = mixer.project.tempo_map.ticks_to_samples(target);
                             current_playhead = target_sample;
                             state.playhead.store(target_sample, Ordering::Relaxed);
-                            ctx.mixer.seek(target_sample);
+                            mixer.seek(target_sample);
                         }
                         AudioCommand::ArmTrack(track_id) => {
                             armed_track = Some(track_id);
@@ -80,7 +77,7 @@ pub(super) fn output_callback(
                 let midi_events: Vec<MidiEvent> = ctx.midi_cons.pop_iter().collect();
                 if !midi_events.is_empty()
                     && let Some(track_id) = armed_track
-                    && let Some(track) = ctx.mixer.project.tracks.get_mut(&track_id)
+                    && let Some(track) = mixer.project.tracks.get_mut(&track_id)
                     && let Some(note_track) = track.as_any_mut().downcast_mut::<NoteTrack>()
                 {
                     note_track.pass_midi(&midi_events);
@@ -89,10 +86,10 @@ pub(super) fn output_callback(
                 let is_playing = state.is_playing.load(Ordering::Relaxed);
 
                 // Process the audio and fill the output buffer
-                ctx.mixer.process(is_playing, current_playhead, data);
+                mixer.process(is_playing, current_playhead, data);
 
                 // Send the generated waveform data to the main thread for visualization
-                let channels = ctx.mixer.project.audio_ctx.channels;
+                let channels = mixer.project.audio_ctx.channels;
                 for ch in 0..channels {
                     let rms = (data
                         .iter()
@@ -108,7 +105,7 @@ pub(super) fn output_callback(
                 if is_playing {
                     state
                         .playhead
-                        .fetch_add(ctx.mixer.project.audio_ctx.buffer_size, Ordering::Relaxed);
+                        .fetch_add(mixer.project.audio_ctx.buffer_size, Ordering::Relaxed);
                 }
             },
             |err| {
