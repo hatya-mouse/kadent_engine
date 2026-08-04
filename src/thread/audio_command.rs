@@ -1,5 +1,5 @@
 use crate::{
-    data_types::Ticks,
+    data_types::{PlaybackContext, Ticks},
     graph::error::GraphError,
     mixer::{Project, TrackID},
 };
@@ -14,6 +14,7 @@ pub enum AudioCommand {
     ExportAudio(Box<Project>),
     ArmTrack(TrackID),
     SetOutputDevice(Device),
+    SetPlaybackCtx(PlaybackContext),
     DisarmTrack,
 }
 

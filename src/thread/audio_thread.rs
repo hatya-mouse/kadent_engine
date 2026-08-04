@@ -1,5 +1,5 @@
 use crate::{
-    data_types::{AudioContext, MidiEvent},
+    data_types::MidiEvent,
     mixer::Mixer,
     thread::{
         AudioCommand, AudioError, AudioResult, export,
@@ -20,16 +20,15 @@ pub(super) fn audio_thread(
     mut midi_cons: ringbuf::HeapCons<MidiEvent>,
     vu_prod: ringbuf::HeapProd<f32>,
     playhead: Arc<AtomicUsize>,
-    audio_ctx: AudioContext,
     initial_mixer: Mixer,
 ) {
     let (mut command_prod, command_cons) = ringbuf::HeapRb::<AudioCommand>::new(64).split();
     let (mut midi_sub_prod, midi_sub_cons) = ringbuf::HeapRb::<MidiEvent>::new(64).split();
 
-    // Create a mixer with the given initial project
-    let pending_mixer = Arc::new(Mutex::new(None));
-    // Create an Arc to return the mixer from the output callback to this audio thread
-    let mixer_return = Arc::new(Mutex::new(None));
+    // The latest playback context, tied to the latest prepared mixer.
+    let mut latest_playback_ctx = initial_mixer.playback_ctx.clone();
+    // A variable to hold the latest prepared mixer, which will be used by the output callback
+    let latest_mixer = Arc::new(Mutex::new(initial_mixer));
     // Manage is_playing using Arc
     let is_playing = Arc::new(AtomicBool::new(false));
     // Create a generation variable to keep track of the latest prepared mixer
@@ -37,37 +36,35 @@ pub(super) fn audio_thread(
 
     // Get a cpal device
     let host = cpal::default_host();
-    let device = host
+    let mut current_device = host
         .default_output_device()
         .expect("Expect a default output device");
 
     // Create an output callback
     let mut project_config = cpal::StreamConfig {
-        channels: audio_ctx.channels as u16,
-        sample_rate: audio_ctx.sample_rate as u32,
-        buffer_size: cpal::BufferSize::Fixed(audio_ctx.buffer_size as u32),
+        channels: latest_playback_ctx.channels as u16,
+        sample_rate: latest_playback_ctx.sample_rate as u32,
+        buffer_size: cpal::BufferSize::Fixed(latest_playback_ctx.buffer_size as u32),
     };
     let callback_ctx = Arc::new(Mutex::new(OutputCallbackContext {
         command_cons,
         midi_cons: midi_sub_cons,
         vu_prod,
-        pending_mixer: pending_mixer.clone(),
-        mixer_return: mixer_return.clone(),
     }));
     let callback_state = OutputCallbackState {
         playhead,
         is_playing: is_playing.clone(),
     };
-    let output_config = device
+    let output_config = current_device
         .default_output_config()
         .map(|config| config.config())
         .unwrap_or(project_config);
     let mut stream = Some(output_callback(
         callback_ctx.clone(),
-        device,
+        current_device.clone(),
         output_config,
         callback_state.clone(),
-        initial_mixer,
+        latest_mixer.clone(),
     ));
 
     if let Some(stream) = stream.as_ref()
@@ -88,29 +85,30 @@ pub(super) fn audio_thread(
                 AudioCommand::Pause => {
                     is_playing.store(false, Ordering::Release);
                 }
-                AudioCommand::UpdateProject(mut new_project) => {
+                AudioCommand::UpdateProject(new_project) => {
                     project_config = cpal::StreamConfig {
-                        channels: new_project.audio_ctx.channels as u16,
-                        sample_rate: new_project.audio_ctx.sample_rate as u32,
+                        channels: latest_playback_ctx.channels as u16,
+                        sample_rate: latest_playback_ctx.sample_rate as u32,
                         buffer_size: cpal::BufferSize::Fixed(
-                            new_project.audio_ctx.buffer_size as u32,
+                            latest_playback_ctx.buffer_size as u32,
                         ),
                     };
 
                     // Increment the current generation by one to mark it as the latest
                     let current_gen = generation.fetch_add(1, Ordering::SeqCst) + 1;
-                    std::thread::spawn(move || {
-                        let gen_arc = Arc::clone(&generation);
-                        let pending_arc = Arc::clone(&pending_mixer);
-                        let result_tx = result_tx.clone();
 
+                    // Copy the required variables to move into the thread
+                    let gen_arc = Arc::clone(&generation);
+                    let latest_arc = Arc::clone(&latest_mixer);
+                    let result_tx = result_tx.clone();
+                    std::thread::spawn(move || {
                         // Prepare the project before applying the project
                         match new_project.prepare() {
                             Ok(mixer) => {
                                 // Check if the mixer is the latest one
                                 if gen_arc.load(Ordering::SeqCst) == current_gen {
                                     // Send the prepared mixer to the audio playback thread
-                                    *pending_arc.lock().unwrap() = Some(mixer);
+                                    *latest_arc.lock().unwrap() = mixer;
                                 }
                             }
                             Err(err) => {
@@ -124,28 +122,36 @@ pub(super) fn audio_thread(
                     export::spawn_export_thread(result_tx, *project);
                 }
                 AudioCommand::SetOutputDevice(device) => {
-                    stream = None;
-
-                    // Create a new MIDI ring buffer and split it into producer and consumer
-                    let (new_sub_prod, new_sub_cons) =
-                        ringbuf::HeapRb::<MidiEvent>::new(64).split();
-                    midi_sub_prod = new_sub_prod;
-
-                    callback_ctx.lock().unwrap().midi_cons = new_sub_cons;
-
-                    // Create a config
-                    let output_config = device
-                        .default_output_config()
-                        .map(|config| config.config())
-                        .unwrap_or(project_config);
-                    // Then get the latest mixer to pass to the new output callback
-                    stream = Some(output_callback(
-                        callback_ctx.clone(),
-                        device,
-                        output_config,
+                    current_device = device;
+                    recreate_output_callback(
+                        &mut stream,
+                        project_config,
+                        &current_device,
+                        &callback_ctx,
                         callback_state.clone(),
-                        latest_mixer,
-                    ));
+                        &mut midi_sub_prod,
+                        &latest_mixer,
+                    );
+
+                    if let Some(stream) = stream.as_ref()
+                        && let Err(err) = stream.play()
+                    {
+                        result_tx
+                            .send(Err(AudioError::PlayStreamError(err)))
+                            .unwrap();
+                    }
+                }
+                AudioCommand::SetPlaybackCtx(new_playback_ctx) => {
+                    latest_playback_ctx = new_playback_ctx;
+                    recreate_output_callback(
+                        &mut stream,
+                        project_config,
+                        &current_device,
+                        &callback_ctx,
+                        callback_state.clone(),
+                        &mut midi_sub_prod,
+                        &latest_mixer,
+                    );
 
                     if let Some(stream) = stream.as_ref()
                         && let Err(err) = stream.play()
@@ -170,4 +176,36 @@ pub(super) fn audio_thread(
             midi_sub_prod.try_push(midi_event).ok();
         }
     }
+}
+
+fn recreate_output_callback(
+    stream: &mut Option<cpal::Stream>,
+    project_config: cpal::StreamConfig,
+    current_device: &cpal::Device,
+    callback_ctx: &Arc<Mutex<OutputCallbackContext>>,
+    callback_state: OutputCallbackState,
+    midi_sub_prod: &mut ringbuf::HeapProd<MidiEvent>,
+    latest_mixer: &Arc<Mutex<Mixer>>,
+) {
+    stream.take();
+
+    // Create a new MIDI ring buffer and split it into producer and consumer
+    let (new_sub_prod, new_sub_cons) = ringbuf::HeapRb::<MidiEvent>::new(64).split();
+    *midi_sub_prod = new_sub_prod;
+
+    callback_ctx.lock().unwrap().midi_cons = new_sub_cons;
+
+    // Create a config
+    let output_config = current_device
+        .default_output_config()
+        .map(|config| config.config())
+        .unwrap_or(project_config);
+    // Then get the latest mixer to pass to the new output callback
+    *stream = Some(output_callback(
+        callback_ctx.clone(),
+        current_device.clone(),
+        output_config,
+        callback_state.clone(),
+        latest_mixer.clone(),
+    ));
 }

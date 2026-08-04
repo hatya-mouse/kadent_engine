@@ -4,22 +4,29 @@ mod tempo_map;
 mod track_id;
 
 pub use project::Project;
-use rayon::iter::{ParallelBridge, ParallelIterator};
 pub use tempo_event::TempoEvent;
 pub use tempo_map::TempoMap;
 pub use track_id::TrackID;
 
+use crate::data_types::PlaybackContext;
+use rayon::iter::{ParallelBridge, ParallelIterator};
+
 pub struct Mixer {
     // --- PROJECT ---
     pub project: Project,
+    // --- PLAYBACK CONTEXT ---
+    pub playback_ctx: PlaybackContext,
 }
 
 impl Mixer {
     // --- NEW ---
 
     /// Creates a new mixer instance with the given project.
-    pub fn new(project: Project) -> Self {
-        Self { project }
+    pub fn new(project: Project, playback_ctx: PlaybackContext) -> Self {
+        Self {
+            project,
+            playback_ctx,
+        }
     }
 
     // --- SEEKING ---

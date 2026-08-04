@@ -1,5 +1,5 @@
 use crate::{
-    data_types::MidiEvent,
+    data_types::{MidiEvent, PlaybackContext},
     mixer::{Mixer, TrackID},
     thread::AudioCommand,
     track::note_track::NoteTrack,
@@ -24,7 +24,6 @@ pub(super) struct OutputCallbackContext {
     pub(super) command_cons: HeapCons<AudioCommand>,
     pub(super) midi_cons: ringbuf::HeapCons<MidiEvent>,
     pub(super) vu_prod: ringbuf::HeapProd<f32>,
-    pub(super) latest_mixer: Arc<Mutex<Option<Mixer>>>,
 }
 
 pub(super) fn output_callback(
@@ -32,7 +31,7 @@ pub(super) fn output_callback(
     device: cpal::Device,
     config: cpal::StreamConfig,
     state: OutputCallbackState,
-    initial_mixer: Mixer,
+    latest_mixer: Arc<Mutex<Mixer>>,
 ) -> cpal::Stream {
     let mut armed_track: Option<TrackID> = None;
 
@@ -43,12 +42,7 @@ pub(super) fn output_callback(
                 let Ok(mut ctx) = ctx.try_lock() else {
                     return;
                 };
-                let Some(mixer) = ctx
-                    .latest_mixer
-                    .try_lock()
-                    .ok()
-                    .and_then(|mut mixer| mixer.as_mut())
-                else {
+                let Ok(mut mixer) = latest_mixer.try_lock() else {
                     return;
                 };
 
@@ -89,7 +83,7 @@ pub(super) fn output_callback(
                 mixer.process(is_playing, current_playhead, data);
 
                 // Send the generated waveform data to the main thread for visualization
-                let channels = mixer.project.audio_ctx.channels;
+                let channels = mixer.playback_ctx.channels;
                 for ch in 0..channels {
                     let rms = (data
                         .iter()
@@ -105,7 +99,7 @@ pub(super) fn output_callback(
                 if is_playing {
                     state
                         .playhead
-                        .fetch_add(mixer.project.audio_ctx.buffer_size, Ordering::Relaxed);
+                        .fetch_add(mixer.playback_ctx.buffer_size, Ordering::Relaxed);
                 }
             },
             |err| {
