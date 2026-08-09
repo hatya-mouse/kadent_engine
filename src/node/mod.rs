@@ -1,7 +1,7 @@
 pub mod builtin;
 
 use crate::{
-    data_types::{AudioContext, TypeInfo},
+    data_types::{AudioContext, PlaybackContext, TypeInfo},
     graph::error::NodeError,
 };
 use std::any::Any;
@@ -32,10 +32,15 @@ pub trait Node: Send + Any {
     fn update(&mut self, audio_ctx: &AudioContext);
 
     /// Prepares the node for processing.
-    fn prepare(&mut self) -> Result<(), Box<dyn NodeError>>;
+    fn prepare(&mut self, playback_ctx: &PlaybackContext) -> Result<(), Box<dyn NodeError>>;
 
     /// Processes the given input pointer and writes the output to the output pointer.
-    fn process(&mut self, inputs: &[*const u8], outputs: &[*mut u8], audio_ctx: &AudioContext);
+    fn process(
+        &mut self,
+        inputs: &[*const u8],
+        outputs: &[*mut u8],
+        playback_ctx: &PlaybackContext,
+    );
 
     /// Converts a reference to the node to any.
     fn as_any(&self) -> &dyn Any;

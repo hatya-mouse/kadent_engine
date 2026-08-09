@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 pub struct AudioContext {
     /// Represents how many ticks are in one beat.
     pub resolution: u64,
-    pub max_voices: usize,
 }
 
 impl AudioContext {
@@ -22,5 +21,6 @@ impl AudioContext {
 pub struct PlaybackContext {
     pub channels: usize,
     pub sample_rate: u64,
+    pub max_voices: usize,
     pub buffer_size: usize,
 }

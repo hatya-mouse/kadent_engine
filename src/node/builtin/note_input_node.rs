@@ -1,5 +1,5 @@
 use crate::{
-    data_types::{AudioContext, TypeInfo, Voice},
+    data_types::{AudioContext, PlaybackContext, TypeInfo, Voice},
     graph::error::NodeError,
     node::Node,
 };
@@ -44,18 +44,17 @@ impl Node for NoteInputNode {
         }
     }
 
-    fn update(&mut self, audio_ctx: &AudioContext) {
+    fn update(&mut self, _audio_ctx: &AudioContext) {}
+
+    fn prepare(&mut self, playback_ctx: &PlaybackContext) -> Result<(), Box<dyn NodeError>> {
         self.data_type = TypeInfo::new(
-            size_of::<Voice>() * audio_ctx.max_voices * audio_ctx.buffer_size,
+            size_of::<Voice>() * playback_ctx.max_voices * playback_ctx.buffer_size,
             4,
         );
-    }
-
-    fn prepare(&mut self) -> Result<(), Box<dyn NodeError>> {
         Ok(())
     }
 
-    fn process(&mut self, inputs: &[*const u8], outputs: &[*mut u8], _audio_ctx: &AudioContext) {
+    fn process(&mut self, inputs: &[*const u8], outputs: &[*mut u8], _audio_ctx: &PlaybackContext) {
         for (input, output) in inputs.iter().zip(outputs.iter()) {
             unsafe {
                 // Copy the entire input to the output

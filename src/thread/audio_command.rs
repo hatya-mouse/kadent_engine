@@ -11,7 +11,7 @@ pub enum AudioCommand {
     Pause,
     Seek(Ticks),
     UpdateProject(Box<Project>),
-    ExportAudio(Box<Project>),
+    ExportAudio(Box<Project>, PlaybackContext),
     ArmTrack(TrackID),
     SetOutputDevice(Device),
     SetPlaybackCtx(PlaybackContext),

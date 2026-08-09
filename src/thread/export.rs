@@ -1,25 +1,29 @@
 use crate::{
-    mixer::{Mixer, Project},
+    data_types::PlaybackContext,
+    mixer::Project,
     thread::{AudioError, AudioResult},
 };
 use std::{sync::mpsc, thread};
 
 pub(super) fn spawn_export_thread(
     result_tx: mpsc::Sender<Result<AudioResult, AudioError>>,
-    mut project: Project,
+    project: Project,
+    playback_ctx: PlaybackContext,
 ) {
     thread::spawn(move || {
-        if let Err(err) = project.prepare() {
-            result_tx.send(Err(AudioError::GraphError(err))).unwrap();
-            return;
-        }
-
         let start_sample = project.tempo_map.ticks_to_samples(project.range_start);
         let end_sample = start_sample + project.tempo_map.ticks_to_samples(project.range_duration);
-        let buffer_size = project.audio_ctx.buffer_size;
-        let channels = project.audio_ctx.channels;
+        let buffer_size = playback_ctx.buffer_size;
+        let channels = playback_ctx.channels;
 
-        let mut mixer = Mixer::new(project);
+        let mut mixer = match project.prepare(playback_ctx) {
+            Ok(mixer) => mixer,
+            Err(err) => {
+                result_tx.send(Err(AudioError::GraphError(err))).unwrap();
+                return;
+            }
+        };
+
         mixer.seek(start_sample);
 
         let total_samples = (end_sample - start_sample) * channels;

@@ -1,7 +1,7 @@
 mod process;
 
 use crate::{
-    data_types::{AudioContext, Ticks},
+    data_types::{AudioContext, PlaybackContext, Ticks},
     graph::{Graph, error::GraphError},
     mixer::TempoMap,
     track::{
@@ -60,11 +60,15 @@ impl Track for AudioTrack {
 
     // --- SEEKING ---
 
-    fn seek(&mut self, _playhead: usize) {}
+    fn seek(&mut self, _playhead: usize, _playback_ctx: &PlaybackContext) {}
 
     // --- TRACK PROCESSING ---
 
-    fn prepare(&mut self, tempo_map: &TempoMap) -> Result<(), GraphError> {
+    fn prepare(
+        &mut self,
+        tempo_map: &TempoMap,
+        playback_ctx: &PlaybackContext,
+    ) -> Result<(), GraphError> {
         // Calculate the total number of frames to process
         let end_ticks = self
             .regions
@@ -74,23 +78,23 @@ impl Track for AudioTrack {
             .unwrap_or(Ticks(0));
         let end_samples = tempo_map.ticks_to_samples(end_ticks);
         let total_samples =
-            end_samples.div_ceil(self.audio_ctx.buffer_size) * self.audio_ctx.buffer_size;
+            end_samples.div_ceil(playback_ctx.buffer_size) * playback_ctx.buffer_size;
 
         // Initialize the processed vector with zeros
-        self.pre_processed = vec![0.0; total_samples * self.audio_ctx.channels];
+        self.pre_processed = vec![0.0; total_samples * playback_ctx.channels];
 
         // Resample the each regions and add them to the pre_processed buffer
         for region in self.regions.values() {
             let resampled = tempo_strech(
                 region,
-                self.audio_ctx.sample_rate,
-                self.audio_ctx.channels,
+                playback_ctx.sample_rate,
+                playback_ctx.channels,
                 tempo_map,
             );
 
             // Calculate the start sample index
             let region_start_index =
-                tempo_map.ticks_to_samples(region.start) * self.audio_ctx.channels;
+                tempo_map.ticks_to_samples(region.start) * playback_ctx.channels;
 
             let available = self.pre_processed.len().saturating_sub(region_start_index);
             let copy_end = resampled.len().min(available);
@@ -100,10 +104,10 @@ impl Track for AudioTrack {
         }
 
         // Initialize the local buffers
-        self.init_local_buffers();
+        self.init_local_buffers(playback_ctx);
 
         // Then prepare the graph
-        self.graph.prepare()
+        self.graph.prepare(playback_ctx)
     }
 
     fn process_to_local_buffer(
@@ -111,10 +115,11 @@ impl Track for AudioTrack {
         is_playing: bool,
         playhead: usize,
         _tempo_map: &TempoMap,
+        playback_ctx: &PlaybackContext,
     ) {
         if is_playing {
-            let buffer_start = playhead * self.audio_ctx.channels;
-            let buffer_size = self.audio_ctx.buffer_size * self.audio_ctx.channels;
+            let buffer_start = playhead * playback_ctx.channels;
+            let buffer_size = playback_ctx.buffer_size * playback_ctx.channels;
             let buffer_end = buffer_start + buffer_size;
 
             // Create a vector for input buffer
@@ -136,8 +141,11 @@ impl Track for AudioTrack {
             };
 
             // Process the graph
-            self.graph
-                .process(&[input_ptr], &[self.local_buffer.as_mut_ptr() as *mut u8]);
+            self.graph.process(
+                &[input_ptr],
+                &[self.local_buffer.as_mut_ptr() as *mut u8],
+                playback_ctx,
+            );
         } else {
             // Mixer::process adds local_buffer into the output every callback regardless of
             // is_playing, so it must be cleared here to prevent the previous buffer from being played repeatedly

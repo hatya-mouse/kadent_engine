@@ -1,9 +1,7 @@
 mod process;
 
-use std::cmp::Reverse;
-
 use crate::{
-    data_types::{AudioContext, Ticks, Voice},
+    data_types::{AudioContext, PlaybackContext, Ticks, Voice},
     graph::{Graph, error::GraphError},
     mixer::TempoMap,
     track::{
@@ -11,6 +9,7 @@ use crate::{
         note_track::{NoteTrack, VoiceEvent},
     },
 };
+use std::cmp::Reverse;
 
 impl Track for NoteTrack {
     // --- CLONING ---
@@ -62,37 +61,47 @@ impl Track for NoteTrack {
 
     // --- SEEKING ---
 
-    fn seek(&mut self, _playhead: usize) {
+    fn seek(&mut self, _playhead: usize, playback_ctx: &PlaybackContext) {
         // Clear the voices and events
         self.voice_events.clear();
-        self.active_voices = vec![Voice::default(); self.audio_ctx.max_voices];
-        self.voice_sources = vec![None; self.audio_ctx.max_voices];
-        self.free_voices = (0..self.audio_ctx.max_voices).collect();
+        self.active_voices = vec![Voice::default(); playback_ctx.max_voices];
+        self.voice_sources = vec![None; playback_ctx.max_voices];
+        self.free_voices = (0..playback_ctx.max_voices).collect();
     }
 
     // --- TRACK PROCESSING ---
 
-    fn prepare(&mut self, _tempo_map: &TempoMap) -> Result<(), GraphError> {
+    fn prepare(
+        &mut self,
+        _tempo_map: &TempoMap,
+        playback_ctx: &PlaybackContext,
+    ) -> Result<(), GraphError> {
         // Pre-process the sequenced notes into processed notes
         self.pre_process_notes();
 
         // Clear the voices and events
         self.voice_events.clear();
-        self.active_voices = vec![Voice::default(); self.audio_ctx.max_voices];
-        self.voice_sources = vec![None; self.audio_ctx.max_voices];
-        self.free_voices = (0..self.audio_ctx.max_voices).collect();
+        self.active_voices = vec![Voice::default(); playback_ctx.max_voices];
+        self.voice_sources = vec![None; playback_ctx.max_voices];
+        self.free_voices = (0..playback_ctx.max_voices).collect();
 
         // Initialize the local buffer
-        self.local_buffer = vec![0.0; self.audio_ctx.buffer_size * self.audio_ctx.channels];
+        self.local_buffer = vec![0.0; playback_ctx.buffer_size * playback_ctx.channels];
 
         // Prepare the graph
-        self.graph.prepare()
+        self.graph.prepare(playback_ctx)
     }
 
-    fn process_to_local_buffer(&mut self, is_playing: bool, playhead: usize, tempo_map: &TempoMap) {
+    fn process_to_local_buffer(
+        &mut self,
+        is_playing: bool,
+        playhead: usize,
+        tempo_map: &TempoMap,
+        playback_ctx: &PlaybackContext,
+    ) {
         let mut voice_buffer =
-            Vec::with_capacity(self.audio_ctx.buffer_size * self.audio_ctx.max_voices);
-        let buffer_end = playhead + self.audio_ctx.buffer_size;
+            Vec::with_capacity(playback_ctx.buffer_size * playback_ctx.max_voices);
+        let buffer_end = playhead + playback_ctx.buffer_size;
 
         // Convert the pending MIDI notes to voice events and push them to the voice_events vector
         let converted_midi_events: Vec<Reverse<VoiceEvent>> = self
@@ -104,13 +113,13 @@ impl Track for NoteTrack {
 
         if is_playing {
             // Create voice events from sequenced notes
-            self.create_events_from_notes(playhead, tempo_map);
+            self.create_events_from_notes(playhead, tempo_map, playback_ctx);
         }
 
         for sample in playhead..buffer_end {
             // Convert voice events to voices
             // Update active voics for this sample
-            self.consume_events_at_sample(is_playing, sample);
+            self.consume_events_at_sample(is_playing, sample, playback_ctx);
             // Extend the voice buffer with the current active voices
             voice_buffer.extend(self.active_voices.clone());
         }
@@ -118,8 +127,11 @@ impl Track for NoteTrack {
         // Get a pointer to the voice buffer
         let input_ptr = voice_buffer.as_ptr() as *const u8;
         // Process the graph
-        self.graph
-            .process(&[input_ptr], &[self.local_buffer.as_mut_ptr() as *mut u8]);
+        self.graph.process(
+            &[input_ptr],
+            &[self.local_buffer.as_mut_ptr() as *mut u8],
+            playback_ctx,
+        );
     }
 
     fn get_local_buffer(&self) -> &[f32] {

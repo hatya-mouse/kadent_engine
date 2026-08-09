@@ -8,7 +8,7 @@ pub use audio_command::{AudioCommand, AudioError, AudioResult};
 pub use handle::AudioThreadHandle;
 
 use crate::{
-    data_types::{AudioContext, MidiEvent},
+    data_types::{MidiEvent, PlaybackContext},
     mixer::Project,
 };
 use ringbuf::{HeapRb, traits::Split};
@@ -21,8 +21,8 @@ pub struct AudioThread;
 
 impl AudioThread {
     pub fn spawn(
-        audio_ctx: AudioContext,
-        mut initial_project: Project,
+        initial_project: Project,
+        playback_ctx: PlaybackContext,
     ) -> (AudioThreadHandle, ringbuf::HeapProd<MidiEvent>) {
         // MPSC channels to send commands to the processing threads from the host.
         let (audio_command_tx, audio_command_rx) = mpsc::channel();
@@ -34,14 +34,18 @@ impl AudioThread {
         // A ringbuf to send MIDI events to the audio thread from the midi thread.
         let (midi_producer, midi_consumer) = HeapRb::<MidiEvent>::new(64).split();
         // A ringbuf to send the calculated VU levels to the host.
-        let (vu_producer, vu_consumer) = HeapRb::<f32>::new(audio_ctx.channels * 2).split();
+        let (vu_producer, vu_consumer) = HeapRb::<f32>::new(playback_ctx.channels * 2).split();
 
         // --- MAIN AUDIO THREAD ---
         thread::spawn(move || {
             // Prepare the initial project
-            if let Err(err) = initial_project.prepare() {
-                result_tx.send(Err(AudioError::GraphError(err))).unwrap();
-            }
+            let mixer = match initial_project.prepare(playback_ctx) {
+                Ok(mixer) => mixer,
+                Err(err) => {
+                    result_tx.send(Err(AudioError::GraphError(err))).unwrap();
+                    return;
+                }
+            };
 
             audio_thread::audio_thread(
                 audio_command_rx,
@@ -49,8 +53,7 @@ impl AudioThread {
                 midi_consumer,
                 vu_producer,
                 playhead_clone,
-                audio_ctx,
-                initial_project,
+                mixer,
             );
         });
 

@@ -34,7 +34,7 @@ impl Mixer {
     /// Tells every tracks that the it will seek.
     pub fn seek(&mut self, playhead: usize) {
         for track in self.project.tracks.values_mut() {
-            track.seek(playhead);
+            track.seek(playhead, &self.playback_ctx);
         }
     }
 
@@ -51,7 +51,12 @@ impl Mixer {
             .values_mut()
             .par_bridge()
             .for_each(|track| {
-                track.process_to_local_buffer(is_playing, playhead, &self.project.tempo_map);
+                track.process_to_local_buffer(
+                    is_playing,
+                    playhead,
+                    &self.project.tempo_map,
+                    &self.playback_ctx,
+                );
             });
 
         // Add the output of each tracks to the main output buffer

@@ -1,5 +1,5 @@
 use crate::{
-    data_types::Ticks,
+    data_types::{PlaybackContext, Ticks},
     mixer::TempoMap,
     track::note_track::{
         Note, NoteTrack, ProcessedNote, VoiceEvent, VoiceSource,
@@ -84,8 +84,13 @@ impl NoteTrack {
     // --- PROCESS ---
 
     /// Retrieves the notes from the regions and converts them to events.
-    pub(super) fn create_events_from_notes(&mut self, playhead: usize, tempo_map: &TempoMap) {
-        let buffer_end = playhead + self.audio_ctx.buffer_size;
+    pub(super) fn create_events_from_notes(
+        &mut self,
+        playhead: usize,
+        tempo_map: &TempoMap,
+        playback_ctx: &PlaybackContext,
+    ) {
+        let buffer_end = playhead + playback_ctx.buffer_size;
 
         for note in self.processed_notes.iter() {
             // Use samples for comparison to avoid asymmetric rounding
@@ -118,8 +123,8 @@ impl NoteTrack {
     }
 
     /// Updates the ages for each MIDI voices in `active_voices`.
-    fn increment_midi_ages(&mut self) {
-        let seconds_per_sample = 1f32 / self.audio_ctx.sample_rate as f32;
+    fn increment_midi_ages(&mut self, sample_rate: f32) {
+        let seconds_per_sample = 1f32 / sample_rate;
         self.active_voices
             .iter_mut()
             .zip(self.voice_sources.iter())
@@ -131,8 +136,8 @@ impl NoteTrack {
     }
 
     /// Updates the ages for each voices generated from sequenced `Note` in `active_voices`.
-    fn increment_sequenced_ages(&mut self) {
-        let seconds_per_sample = 1f32 / self.audio_ctx.sample_rate as f32;
+    fn increment_sequenced_ages(&mut self, sample_rate: f32) {
+        let seconds_per_sample = 1f32 / sample_rate;
         self.active_voices
             .iter_mut()
             .zip(self.voice_sources.iter())
@@ -144,11 +149,16 @@ impl NoteTrack {
     }
 
     /// Consumes the events at the current sample and updates the active voices.
-    pub(super) fn consume_events_at_sample(&mut self, is_playing: bool, sample: usize) {
+    pub(super) fn consume_events_at_sample(
+        &mut self,
+        is_playing: bool,
+        sample: usize,
+        playback_ctx: &PlaybackContext,
+    ) {
         // Increment ages for each active voices
-        self.increment_midi_ages();
+        self.increment_midi_ages(playback_ctx.sample_rate as f32);
         if is_playing {
-            self.increment_sequenced_ages();
+            self.increment_sequenced_ages(playback_ctx.sample_rate as f32);
         }
 
         // Consume event and create events

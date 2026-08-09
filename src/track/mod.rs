@@ -5,7 +5,7 @@ mod region_id;
 pub use region_id::RegionID;
 
 use crate::{
-    data_types::{AudioContext, Ticks},
+    data_types::{AudioContext, PlaybackContext, Ticks},
     graph::{Graph, error::GraphError},
     mixer::TempoMap,
 };
@@ -37,13 +37,23 @@ pub trait Track: Send + Any {
     fn set_audio_ctx(&mut self, audio_ctx: &AudioContext);
 
     /// Prepares for the seeking.
-    fn seek(&mut self, playhead: usize);
+    fn seek(&mut self, playhead: usize, playback_ctx: &PlaybackContext);
 
     /// Prepares the track for processing.
-    fn prepare(&mut self, tempo_map: &TempoMap) -> Result<(), GraphError>;
+    fn prepare(
+        &mut self,
+        tempo_map: &TempoMap,
+        playback_ctx: &PlaybackContext,
+    ) -> Result<(), GraphError>;
 
     /// Processes the track and writes the processed output to the local buffer.
-    fn process_to_local_buffer(&mut self, is_playing: bool, playhead: usize, tempo_map: &TempoMap);
+    fn process_to_local_buffer(
+        &mut self,
+        is_playing: bool,
+        playhead: usize,
+        tempo_map: &TempoMap,
+        playback_ctx: &PlaybackContext,
+    );
 
     /// Returns the processed audio data in the local buffer.
     fn get_local_buffer(&self) -> &[f32];

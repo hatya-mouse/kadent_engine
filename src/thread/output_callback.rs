@@ -1,5 +1,5 @@
 use crate::{
-    data_types::{MidiEvent, PlaybackContext},
+    data_types::MidiEvent,
     mixer::{Mixer, TrackID},
     thread::AudioCommand,
     track::note_track::NoteTrack,

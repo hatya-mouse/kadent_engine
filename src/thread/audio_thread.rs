@@ -101,9 +101,10 @@ pub(super) fn audio_thread(
                     let gen_arc = Arc::clone(&generation);
                     let latest_arc = Arc::clone(&latest_mixer);
                     let result_tx = result_tx.clone();
+                    let playback_ctx = latest_playback_ctx.clone();
                     std::thread::spawn(move || {
                         // Prepare the project before applying the project
-                        match new_project.prepare() {
+                        match new_project.prepare(playback_ctx) {
                             Ok(mixer) => {
                                 // Check if the mixer is the latest one
                                 if gen_arc.load(Ordering::SeqCst) == current_gen {
@@ -117,9 +118,9 @@ pub(super) fn audio_thread(
                         }
                     });
                 }
-                AudioCommand::ExportAudio(project) => {
+                AudioCommand::ExportAudio(project, playback_ctx) => {
                     let result_tx = result_tx.clone();
-                    export::spawn_export_thread(result_tx, *project);
+                    export::spawn_export_thread(result_tx, *project, playback_ctx);
                 }
                 AudioCommand::SetOutputDevice(device) => {
                     current_device = device;

@@ -1,5 +1,5 @@
 use crate::{
-    data_types::{AudioContext, Ticks},
+    data_types::{AudioContext, PlaybackContext, Ticks},
     graph::error::GraphError,
     mixer::{Mixer, TempoMap, track_id::TrackID},
     track::Track,
@@ -110,12 +110,15 @@ impl Project {
     // --- MIXING PREPARATION ---
 
     /// Prepares the tracks in the mixer for the playback.
-    pub fn prepare(mut self) -> Result<Mixer, GraphError> {
+    pub fn prepare(mut self, playback_ctx: PlaybackContext) -> Result<Mixer, GraphError> {
+        // Prepare the tempo map first
+        self.tempo_map.prepare(playback_ctx.clone());
+
         // Prepare the tracks one by one
         for track in self.tracks.values_mut() {
-            track.prepare(&self.tempo_map)?;
+            track.prepare(&self.tempo_map, &playback_ctx)?;
         }
 
-        Ok(Mixer::new(self))
+        Ok(Mixer::new(self, playback_ctx))
     }
 }
