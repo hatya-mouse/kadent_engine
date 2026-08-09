@@ -10,7 +10,7 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use ringbuf::traits::{Consumer, Producer, Split};
 use std::sync::{
     Arc, Mutex,
-    atomic::{AtomicBool, AtomicUsize, Ordering},
+    atomic::{AtomicBool, AtomicI64, AtomicU64, AtomicUsize, Ordering},
     mpsc,
 };
 
@@ -19,7 +19,8 @@ pub(super) fn audio_thread(
     result_tx: mpsc::Sender<Result<AudioResult, AudioError>>,
     mut midi_cons: ringbuf::HeapCons<MidiEvent>,
     vu_prod: ringbuf::HeapProd<f32>,
-    playhead: Arc<AtomicUsize>,
+    playhead: Arc<AtomicU64>,
+    playhead_ticks: Arc<AtomicI64>,
     initial_mixer: Mixer,
 ) {
     let (mut command_prod, command_cons) = ringbuf::HeapRb::<AudioCommand>::new(64).split();
@@ -53,6 +54,7 @@ pub(super) fn audio_thread(
     }));
     let callback_state = OutputCallbackState {
         playhead,
+        playhead_ticks,
         is_playing: is_playing.clone(),
     };
     let output_config = current_device

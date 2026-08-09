@@ -11,12 +11,13 @@ use ringbuf::{
 };
 use std::sync::{
     Arc, Mutex,
-    atomic::{AtomicBool, AtomicUsize, Ordering},
+    atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering},
 };
 
 #[derive(Clone)]
 pub(super) struct OutputCallbackState {
-    pub(super) playhead: Arc<AtomicUsize>,
+    pub(super) playhead: Arc<AtomicU64>,
+    pub(super) playhead_ticks: Arc<AtomicI64>,
     pub(super) is_playing: Arc<AtomicBool>,
 }
 
@@ -53,8 +54,11 @@ pub(super) fn output_callback(
                     match command {
                         AudioCommand::Seek(target) => {
                             let target_sample = mixer.project.tempo_map.ticks_to_samples(target);
-                            current_playhead = target_sample;
-                            state.playhead.store(target_sample, Ordering::Relaxed);
+                            current_playhead = target_sample as u64;
+                            state
+                                .playhead
+                                .store(target_sample as u64, Ordering::Relaxed);
+                            state.playhead_ticks.store(target.0, Ordering::Relaxed);
                             mixer.seek(target_sample);
                         }
                         AudioCommand::ArmTrack(track_id) => {
@@ -80,7 +84,7 @@ pub(super) fn output_callback(
                 let is_playing = state.is_playing.load(Ordering::Relaxed);
 
                 // Process the audio and fill the output buffer
-                mixer.process(is_playing, current_playhead, data);
+                mixer.process(is_playing, current_playhead as usize, data);
 
                 // Send the generated waveform data to the main thread for visualization
                 let channels = mixer.playback_ctx.channels;
@@ -97,9 +101,13 @@ pub(super) fn output_callback(
                 }
 
                 if is_playing {
-                    state
-                        .playhead
-                        .fetch_add(mixer.playback_ctx.buffer_size, Ordering::Relaxed);
+                    let new_playhead = current_playhead + mixer.playback_ctx.buffer_size as u64;
+                    state.playhead.fetch_add(new_playhead, Ordering::Relaxed);
+                    let new_ticks = mixer
+                        .project
+                        .tempo_map
+                        .samples_to_ticks(new_playhead as usize);
+                    state.playhead_ticks.store(new_ticks.0, Ordering::Relaxed);
                 }
             },
             |err| {

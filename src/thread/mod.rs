@@ -13,7 +13,11 @@ use crate::{
 };
 use ringbuf::{HeapRb, traits::Split};
 use std::{
-    sync::{Arc, atomic::AtomicUsize, mpsc},
+    sync::{
+        Arc,
+        atomic::{AtomicI64, AtomicU64},
+        mpsc,
+    },
     thread,
 };
 
@@ -29,8 +33,10 @@ impl AudioThread {
         // MPSC channel to send the results back to the host.
         let (result_tx, result_rx) = mpsc::channel();
         // Shared playhead position using Arc and AtomicUsize for thread-safe access.
-        let playhead = Arc::new(AtomicUsize::new(0));
+        let playhead = Arc::new(AtomicU64::new(0));
+        let playhead_ticks = Arc::new(AtomicI64::new(0));
         let playhead_clone = playhead.clone();
+        let playhead_ticks_clone = playhead_ticks.clone();
         // A ringbuf to send MIDI events to the audio thread from the midi thread.
         let (midi_producer, midi_consumer) = HeapRb::<MidiEvent>::new(64).split();
         // A ringbuf to send the calculated VU levels to the host.
@@ -53,6 +59,7 @@ impl AudioThread {
                 midi_consumer,
                 vu_producer,
                 playhead_clone,
+                playhead_ticks_clone,
                 mixer,
             );
         });
@@ -63,6 +70,7 @@ impl AudioThread {
                 result_rx,
                 vu_consumer,
                 playhead,
+                playhead_ticks,
             },
             midi_producer,
         )
