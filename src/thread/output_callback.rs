@@ -102,7 +102,7 @@ pub(super) fn output_callback(
 
                 if is_playing {
                     let new_playhead = current_playhead + mixer.playback_ctx.buffer_size as u64;
-                    state.playhead.fetch_add(new_playhead, Ordering::Relaxed);
+                    state.playhead.store(new_playhead, Ordering::Relaxed);
                     let new_ticks = mixer
                         .project
                         .tempo_map
