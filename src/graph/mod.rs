@@ -232,8 +232,12 @@ impl Graph {
         // First sort the graph
         self.sort_graph()?;
 
-        // Allocate output buffer for the input node
+        // Prepare the input node and allocate its output buffer
         if let Some(input_node) = self.nodes.get_mut(&self.input_id) {
+            input_node
+                .prepare(playback_ctx)
+                .map_err(GraphError::NodeError)?;
+
             Self::allocate_output_buffer(
                 &self.input_id,
                 input_node.as_ref(),
@@ -241,6 +245,13 @@ impl Graph {
                 &mut self.node_outputs,
                 playback_ctx,
             )?;
+        }
+
+        // Prepare the output node as well
+        if let Some(output_node) = self.nodes.get_mut(&self.output_id) {
+            output_node
+                .prepare(playback_ctx)
+                .map_err(GraphError::NodeError)?;
         }
 
         for node_id in &self.sorted_nodes {
