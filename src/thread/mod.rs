@@ -34,7 +34,7 @@ impl AudioThread {
         // A ringbuf to send MIDI events to the audio thread from the midi thread.
         let (midi_producer, midi_consumer) = HeapRb::<MidiEvent>::new(64).split();
         // A ringbuf to send the calculated VU levels to the host.
-        let (vu_producer, vu_consumer) = HeapRb::<f32>::new(playback_ctx.channels * 2).split();
+        let (vu_producer, vu_consumer) = HeapRb::<f32>::new(128).split();
 
         // --- MAIN AUDIO THREAD ---
         thread::spawn(move || {
