@@ -101,9 +101,8 @@ pub(super) fn output_callback(
                 }
 
                 if is_playing {
-                    let new_playhead = current_playhead
-                        .checked_add(mixer.playback_ctx.buffer_size as u64)
-                        .unwrap_or_default();
+                    let new_playhead =
+                        current_playhead.saturating_add(mixer.playback_ctx.buffer_size as u64);
                     state.playhead.store(new_playhead, Ordering::Relaxed);
                     let new_ticks = mixer
                         .project
