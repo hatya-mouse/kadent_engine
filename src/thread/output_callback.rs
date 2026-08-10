@@ -1,7 +1,7 @@
 use crate::{
     data_types::MidiEvent,
     mixer::{Mixer, TrackID},
-    thread::AudioCommand,
+    thread::{AudioCommand, AudioError, AudioResult},
     track::note_track::NoteTrack,
 };
 use cpal::traits::DeviceTrait;
@@ -12,6 +12,7 @@ use ringbuf::{
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering},
+    mpsc,
 };
 
 #[derive(Clone)]
@@ -25,6 +26,7 @@ pub(super) struct OutputCallbackContext {
     pub(super) command_cons: HeapCons<AudioCommand>,
     pub(super) midi_cons: ringbuf::HeapCons<MidiEvent>,
     pub(super) vu_prod: ringbuf::HeapProd<f32>,
+    pub(super) result_tx: mpsc::Sender<Result<AudioResult, AudioError>>,
 }
 
 pub(super) fn output_callback(
@@ -35,6 +37,7 @@ pub(super) fn output_callback(
     latest_mixer: Arc<Mutex<Mixer>>,
 ) -> cpal::Stream {
     let mut armed_track: Option<TrackID> = None;
+    let ctx_clone = ctx.clone();
 
     device
         .build_output_stream(
@@ -111,8 +114,10 @@ pub(super) fn output_callback(
                     state.playhead_ticks.store(new_ticks.0, Ordering::Relaxed);
                 }
             },
-            |err| {
-                eprintln!("An error occured on stream: {}", err);
+            move |err| {
+                if let Ok(ctx) = ctx_clone.lock() {
+                    let _ = ctx.result_tx.send(Err(AudioError::PlayStreamError(err)));
+                }
             },
             None,
         )

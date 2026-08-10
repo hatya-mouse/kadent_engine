@@ -51,6 +51,7 @@ pub(super) fn audio_thread(
         command_cons,
         midi_cons: midi_sub_cons,
         vu_prod,
+        result_tx: result_tx.clone(),
     }));
     let callback_state = OutputCallbackState {
         playhead,
