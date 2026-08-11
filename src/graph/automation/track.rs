@@ -1,10 +1,6 @@
 use crate::{
     data_types::{PlaybackContext, Ticks},
-    graph::automation::{
-        self,
-        constant::{ConstantAutomationCursor, get_int_value_at},
-        float::FloatAutomationCursor,
-    },
+    graph::automation::{constant::ConstantAutomationCursor, float::FloatAutomationCursor},
     mixer::TempoMap,
 };
 
@@ -48,8 +44,12 @@ pub enum AutomationTrack {
         /// [(100, gradient_value_1), (200, gradient_value_2), (300, gradient_value_3)]
         /// ```
         gradient_vals: Vec<(usize, f32)>,
-        /// The cursor that keeps track of the current position in the automation track for processing.
-        automation_cursor: FloatAutomationCursor,
+        /// Cached sample indices of the keyframes, sorted in the order of the keyframe index.
+        keyframe_samples: Vec<usize>,
+        /// The cursor that gets the constant value at the specific sample index.
+        const_cursor: ConstantAutomationCursor,
+        /// The cursor that calculates the gradient at the specific sample index.
+        float_cursor: FloatAutomationCursor,
     },
     /// Integer keyframe track, used for discrete values.
     /// The value changes instantly at the keyframe tick without interpolation.
@@ -79,7 +79,7 @@ impl AutomationTrack {
     pub fn size_of_value(&self) -> usize {
         match self {
             AutomationTrack::Float { .. } => std::mem::size_of::<f32>(),
-            AutomationTrack::Int { .. } => std::mem::size_of::<f32>(),
+            AutomationTrack::Int { .. } => std::mem::size_of::<i32>(),
             AutomationTrack::Bool { .. } => std::mem::size_of::<bool>(),
         }
     }
@@ -91,8 +91,21 @@ impl AutomationTrack {
             AutomationTrack::Float {
                 keyframes,
                 gradient_vals,
-                ..
+                keyframe_samples,
+                const_cursor,
+                float_cursor,
             } => {
+                // Calculate the keyframe samples
+                keyframe_samples.clear();
+                for keyframe in keyframes.iter() {
+                    let sample = tempo_map.ticks_to_samples(keyframe.ticks);
+                    keyframe_samples.push(sample);
+                }
+
+                // Clear the cursor cache
+                const_cursor.clear_cache();
+                float_cursor.clear_cache();
+
                 gradient_vals.clear();
                 if keyframes.is_empty() {
                     return;
@@ -118,7 +131,11 @@ impl AutomationTrack {
                     let delta_value = keyframe_2.value - keyframe_1.value;
                     let end_samples = tempo_map.ticks_to_samples(keyframe_2.ticks);
                     let delta_samples = end_samples - tempo_map.ticks_to_samples(keyframe_1.ticks);
-                    let gradient_value = delta_value / delta_samples as f32;
+                    let gradient_value = if delta_samples > 0 {
+                        delta_value / delta_samples as f32
+                    } else {
+                        0.0
+                    };
 
                     gradient_vals.push((end_samples, gradient_value));
                 }
@@ -126,10 +143,13 @@ impl AutomationTrack {
             AutomationTrack::Int {
                 keyframes,
                 keyframe_samples,
-                ..
+                automation_cursor,
             } => {
+                // Clear the cursor cache
+                automation_cursor.clear_cache();
+
                 keyframe_samples.clear();
-                for keyframe in keyframes {
+                for keyframe in keyframes.iter() {
                     let sample = tempo_map.ticks_to_samples(keyframe.ticks);
                     keyframe_samples.push(sample);
                 }
@@ -137,10 +157,13 @@ impl AutomationTrack {
             AutomationTrack::Bool {
                 keyframes,
                 keyframe_samples,
-                ..
+                automation_cursor,
             } => {
+                // Clear the cursor cache
+                automation_cursor.clear_cache();
+
                 keyframe_samples.clear();
-                for keyframe in keyframes {
+                for keyframe in keyframes.iter() {
                     let sample = tempo_map.ticks_to_samples(keyframe.ticks);
                     keyframe_samples.push(sample);
                 }
@@ -148,22 +171,37 @@ impl AutomationTrack {
         }
     }
 
-    pub fn process(
-        &mut self,
-        buffer: &mut Vec<u8>,
-        playhead: usize,
-        playback_ctx: &PlaybackContext,
-    ) {
+    pub fn process(&mut self, buffer: &mut [u8], playhead: usize, playback_ctx: &PlaybackContext) {
         let buffer_end = playhead + playback_ctx.buffer_size;
 
         match self {
             AutomationTrack::Float {
                 keyframes,
+                keyframe_samples,
                 gradient_vals,
-                automation_cursor,
+                const_cursor,
+                float_cursor,
             } => {
-                for (i, sample) in (playhead..buffer_end).enumerate() {
-                    let gradient = automation_cursor.get_gradient_at(gradient_vals, sample);
+                // First, get the constant value at the playhead position
+                // Note that this is not the actual value at the playhead
+                // |                 *   |<-- playhead
+                // 0     const_value ^   ^ current_value
+                let const_value =
+                    const_cursor.get_constant_keyframe_value(keyframes, keyframe_samples, playhead);
+                let keyframe_sample = const_cursor
+                    .current_index
+                    .map(|index| keyframe_samples[index])
+                    .unwrap_or_default();
+                let elapsed = playhead.saturating_sub(keyframe_sample);
+                // Calculate the start value at the playhead position by adding the gradient value to the constant value
+                let initial_gradient = float_cursor.get_gradient_at(gradient_vals, playhead);
+                let mut current_value = const_value + elapsed as f32 * initial_gradient;
+
+                for (sample, chunk) in (playhead..buffer_end).zip(buffer.chunks_exact_mut(4)) {
+                    // Add the gradient value to the current value for each sample
+                    let gradient = float_cursor.get_gradient_at(gradient_vals, sample);
+                    chunk.copy_from_slice(&current_value.to_ne_bytes());
+                    current_value += gradient;
                 }
             }
             AutomationTrack::Int {
@@ -171,12 +209,13 @@ impl AutomationTrack {
                 keyframe_samples,
                 automation_cursor,
             } => {
-                for sample in playhead..buffer_end {
-                    automation_cursor.get_constant_keyframe_value(
+                for (sample, chunk) in (playhead..buffer_end).zip(buffer.chunks_exact_mut(4)) {
+                    let value = automation_cursor.get_constant_keyframe_value(
                         keyframes,
                         keyframe_samples,
                         sample,
                     );
+                    chunk.copy_from_slice(&value.to_ne_bytes());
                 }
             }
             AutomationTrack::Bool {
@@ -184,12 +223,13 @@ impl AutomationTrack {
                 keyframe_samples,
                 automation_cursor,
             } => {
-                for sample in playhead..buffer_end {
-                    automation_cursor.get_constant_keyframe_value(
+                for (sample, chunk) in (playhead..buffer_end).zip(buffer.iter_mut()) {
+                    let value = automation_cursor.get_constant_keyframe_value(
                         keyframes,
                         keyframe_samples,
                         sample,
                     );
+                    *chunk = value as u8;
                 }
             }
         }

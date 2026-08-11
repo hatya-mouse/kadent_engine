@@ -29,7 +29,10 @@ pub struct Graph {
 
     // --- PROCESSING DATA ---
     sorted_nodes: Vec<NodeID>,
+    /// Allocated buffers for the output of each node, which are used as input for the connected nodes.
     output_buffers: HashMap<(NodeID, usize), Vec<u8>>,
+    /// Allocated buffers for the calculated keyframe values.
+    keyframe_buffers: HashMap<(NodeID, usize), Vec<u8>>,
     /// Stores pointers to the input buffers of each node, which may be the same as the node output buffers of the connected node.
     node_inputs: HashMap<NodeID, Vec<*const u8>>,
     /// Stores pointers to the output buffers of each node.
@@ -287,7 +290,10 @@ impl Graph {
             }
         }
 
-        // Calculate the max buffer size and create a zero buffer
+        // Prepare the keyframe manager
+        self.keyframe_manager.prepare(tempo_map);
+
+        // Calculate the max buffer size possible and create a zero buffer
         let mut max_size = 4usize;
         for (node_id, node) in &self.nodes {
             for i in 0..node.get_input_len() {
@@ -317,19 +323,49 @@ impl Graph {
             }
         }
 
-        // For nodes that have no input, set the input buffer to the zero buffer
+        // Allocate the buffers for the keyframe inputs
+        self.keyframe_buffers.clear();
         let zero_ptr = self.zero_buffer.as_ptr();
-        let node_ids_needing_inputs: Vec<NodeID> = self
+        let all_node_ids: Vec<NodeID> = self
             .sorted_nodes
             .iter()
             .chain(std::iter::once(&self.output_id))
             .copied()
             .collect();
-        for node_id in node_ids_needing_inputs {
+        for node_id in all_node_ids {
             let input_len = self.nodes.get(&node_id).map_or(0, |n| n.get_input_len());
-            self.node_inputs
-                .entry(node_id)
-                .or_insert_with(|| vec![zero_ptr; input_len]);
+            let mut input_ptrs = vec![zero_ptr; input_len];
+
+            for (input_index, input_ptr) in input_ptrs.iter_mut().enumerate() {
+                let key = (node_id, input_index);
+
+                // Get the input source of the input
+                match self.input_sources.get(&key) {
+                    Some(InputSource::Edge(from_node, from_output)) => {
+                        if let Some(buffer) = self.output_buffers.get(&(*from_node, *from_output)) {
+                            *input_ptr = buffer.as_ptr();
+                        }
+                    }
+                    Some(InputSource::Keyframe) => {
+                        let input_type = self.nodes[&node_id]
+                            .get_input_type(input_index)
+                            .ok_or(GraphError::InputTypeUnavailable(node_id, input_index))?;
+
+                        // Allocate the keyframe buffer for the input based on the input type and the buffer size
+                        let buf_size = input_type.size * playback_ctx.buffer_size;
+                        let keyframe_buf = vec![0u8; buf_size];
+
+                        *input_ptr = keyframe_buf.as_ptr();
+                        self.keyframe_buffers.insert(key, keyframe_buf);
+                    }
+                    Some(InputSource::Zero) => {
+                        *input_ptr = zero_ptr;
+                    }
+                    _ => {}
+                }
+            }
+
+            self.node_inputs.insert(node_id, input_ptrs);
         }
 
         Ok(())
@@ -344,6 +380,10 @@ impl Graph {
         playhead: usize,
         playback_ctx: &PlaybackContext,
     ) {
+        // Update the keyframe values for the current playhead position
+        self.keyframe_manager
+            .process(&mut self.keyframe_buffers, playhead, playback_ctx);
+
         // Get the pointer to the output buffer of the input node
         let Some(output_buffers) = self.get_output_ptr(&self.input_id) else {
             return;

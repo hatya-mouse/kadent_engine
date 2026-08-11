@@ -1,7 +1,7 @@
 use crate::graph::automation::Keyframe;
 
 #[derive(Debug, Clone)]
-pub(super) struct ConstantAutomationCursor {
+pub struct ConstantAutomationCursor {
     pub current_index: Option<usize>,
 }
 
@@ -70,7 +70,7 @@ impl ConstantAutomationCursor {
         self.current_index = Some(
             keyframe_samples
                 .binary_search(&target_sample)
-                .map_or_else(|index| index.saturating_sub(1), |index| index),
+                .unwrap_or_else(|index| index.saturating_sub(1)),
         );
 
         if let Some(new_index) = self.current_index {

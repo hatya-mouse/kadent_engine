@@ -1,7 +1,8 @@
 /// An automation cursor that keeps track of the current index in a list of gradient values.
 /// This is solely used to interpolate between **float** keyframes, not integer or boolean keyframes.
 #[derive(Debug, Clone, Default)]
-pub(super) struct FloatAutomationCursor {
+pub struct FloatAutomationCursor {
+    /// Currently processing index in the calculated gradient values.
     pub current_index: Option<usize>,
 }
 
