@@ -1,16 +1,17 @@
+pub mod automation;
 pub mod error;
-pub mod keyframe;
 pub mod node_id;
 mod topological_sort;
 
 use crate::{
     data_types::{AudioContext, PlaybackContext},
-    graph::{error::GraphError, keyframe::KeyframeManager, node_id::NodeID},
+    graph::{automation::KeyframeManager, error::GraphError, node_id::NodeID},
+    mixer::TempoMap,
     node::Node,
 };
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub enum InputSource {
     Edge(NodeID, usize),
     Keyframe,
@@ -38,6 +39,10 @@ pub struct Graph {
     // --- CONFIGURATIONS ---
     /// The current audio context.
     audio_ctx: AudioContext,
+
+    // --- KEYFRAMES ---
+    /// The keyframe manager that calculates and holds the keyframe values for each node and input index.
+    keyframe_manager: KeyframeManager,
 
     // --- MISC ---
     next_node_id: u64,
@@ -237,7 +242,11 @@ impl Graph {
     }
 
     /// Prepares the graph for processing. The host must call this function before start processing, or it may lead to undefined behavior.
-    pub fn prepare(&mut self, playback_ctx: &PlaybackContext) -> Result<(), GraphError> {
+    pub fn prepare(
+        &mut self,
+        tempo_map: &TempoMap,
+        playback_ctx: &PlaybackContext,
+    ) -> Result<(), GraphError> {
         // First sort the graph
         self.sort_graph()?;
 
@@ -332,6 +341,7 @@ impl Graph {
         &mut self,
         inputs: &[*const u8],
         outputs: &[*mut u8],
+        playhead: usize,
         playback_ctx: &PlaybackContext,
     ) {
         // Get the pointer to the output buffer of the input node

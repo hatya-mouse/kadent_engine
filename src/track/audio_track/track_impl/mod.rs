@@ -107,7 +107,7 @@ impl Track for AudioTrack {
         self.init_local_buffers(playback_ctx);
 
         // Then prepare the graph
-        self.graph.prepare(playback_ctx)
+        self.graph.prepare(tempo_map, playback_ctx)
     }
 
     fn process_to_local_buffer(
@@ -144,6 +144,7 @@ impl Track for AudioTrack {
             self.graph.process(
                 &[input_ptr],
                 &[self.local_buffer.as_mut_ptr() as *mut u8],
+                playhead,
                 playback_ctx,
             );
         } else {

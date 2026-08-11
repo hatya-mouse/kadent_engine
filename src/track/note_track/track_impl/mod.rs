@@ -73,7 +73,7 @@ impl Track for NoteTrack {
 
     fn prepare(
         &mut self,
-        _tempo_map: &TempoMap,
+        tempo_map: &TempoMap,
         playback_ctx: &PlaybackContext,
     ) -> Result<(), GraphError> {
         // Pre-process the sequenced notes into processed notes
@@ -89,7 +89,7 @@ impl Track for NoteTrack {
         self.local_buffer = vec![0.0; playback_ctx.buffer_size * playback_ctx.channels];
 
         // Prepare the graph
-        self.graph.prepare(playback_ctx)
+        self.graph.prepare(tempo_map, playback_ctx)
     }
 
     fn process_to_local_buffer(
@@ -130,6 +130,7 @@ impl Track for NoteTrack {
         self.graph.process(
             &[input_ptr],
             &[self.local_buffer.as_mut_ptr() as *mut u8],
+            playhead,
             playback_ctx,
         );
     }
