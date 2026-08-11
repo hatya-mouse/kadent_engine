@@ -23,7 +23,7 @@ pub enum InputSource {
 pub struct Graph {
     // --- GRAPH STRUCTURE ---
     nodes: HashMap<NodeID, Box<dyn Node>>,
-    input_sources: HashMap<(NodeID, usize), InputSource>,
+    pub input_sources: HashMap<(NodeID, usize), InputSource>,
     adjacency: HashMap<NodeID, Vec<NodeID>>,
     input_id: NodeID,
     output_id: NodeID,
