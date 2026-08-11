@@ -1,6 +1,6 @@
 use crate::graph::automation::Keyframe;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ConstantAutomationCursor {
     pub current_index: Option<usize>,
 }
