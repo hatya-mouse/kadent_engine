@@ -1,19 +1,27 @@
 pub mod error;
+pub mod keyframe;
 pub mod node_id;
-pub mod topological_sort;
+mod topological_sort;
 
 use crate::{
     data_types::{AudioContext, PlaybackContext},
-    graph::{error::GraphError, node_id::NodeID},
+    graph::{error::GraphError, keyframe::KeyframeManager, node_id::NodeID},
     node::Node,
 };
 use std::collections::HashMap;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InputSource {
+    Edge(NodeID, usize),
+    Keyframe,
+    Zero,
+}
 
 #[derive(Default, Clone)]
 pub struct Graph {
     // --- GRAPH STRUCTURE ---
     nodes: HashMap<NodeID, Box<dyn Node>>,
-    edges: Vec<(NodeID, usize, NodeID, usize)>,
+    input_sources: HashMap<(NodeID, usize), InputSource>,
     adjacency: HashMap<NodeID, Vec<NodeID>>,
     input_id: NodeID,
     output_id: NodeID,
@@ -21,8 +29,9 @@ pub struct Graph {
     // --- PROCESSING DATA ---
     sorted_nodes: Vec<NodeID>,
     output_buffers: HashMap<(NodeID, usize), Vec<u8>>,
-    // Pointers to the edge buffer in the input order
+    /// Stores pointers to the input buffers of each node, which may be the same as the node output buffers of the connected node.
     node_inputs: HashMap<NodeID, Vec<*const u8>>,
+    /// Stores pointers to the output buffers of each node.
     node_outputs: HashMap<NodeID, Vec<*mut u8>>,
     zero_buffer: Vec<u8>,
 
@@ -68,12 +77,6 @@ impl Graph {
         let id = NodeID(self.next_node_id);
         self.next_node_id += 1;
         id
-    }
-
-    // --- EDGE GETTING ---
-
-    pub fn get_edges(&self) -> &Vec<(NodeID, usize, NodeID, usize)> {
-        &self.edges
     }
 
     // --- NODE GETTING ---
@@ -133,52 +136,58 @@ impl Graph {
     /// Removes the node with the given NodeID from the graph.
     pub fn remove_node(&mut self, id: &NodeID) {
         // Remove the edges connected to the node
-        self.edges.retain(|edge| edge.0 != *id && edge.2 != *id);
+        self.input_sources.retain(|&(to_node, _), _| to_node != *id);
+        self.input_sources.retain(|&(_, _), source| {
+            if let InputSource::Edge(from_node, _) = source {
+                *from_node != *id
+            } else {
+                true
+            }
+        });
         // Remove the node
         self.nodes.remove(id);
     }
 
     // --- EDGE MANIPULATION ---
 
-    /// Connects the node's output to another nodes' input without any validation.
-    /// Useful for loading the graph from a file, where we assume the file is valid.
-    pub fn add_edge_unchecked(&mut self, edge: (NodeID, usize, NodeID, usize)) {
-        self.edges.push(edge);
+    /// Connects the node's output to another nodes' input without any validation,
+    /// but overwrites the existing edge if it exists.
+    pub fn add_edge_unchecked(&mut self, from: (NodeID, usize), to: (NodeID, usize)) {
+        self.input_sources
+            .insert(to, InputSource::Edge(from.0, from.1));
     }
 
     /// Connects the node's output to another node's input, and returns an error if the type of the output and input are not the same, or if the node is not found.
-    pub fn add_edge(&mut self, edge: (NodeID, usize, NodeID, usize)) -> Result<(), GraphError> {
+    /// This function overwrites the existing edge if it exists.
+    pub fn add_edge(
+        &mut self,
+        from: (NodeID, usize),
+        to: (NodeID, usize),
+    ) -> Result<(), GraphError> {
         // Check if the type of the output and input are the same
         let output_type = self
             .nodes
-            .get(&edge.0)
-            .and_then(|node| node.get_output_type(edge.1))
-            .ok_or(GraphError::OutputTypeUnavailable(edge.0, edge.1))?;
+            .get(&from.0)
+            .and_then(|node| node.get_output_type(from.1))
+            .ok_or(GraphError::OutputTypeUnavailable(from.0, from.1))?;
         let input_type = self
             .nodes
-            .get(&edge.2)
-            .and_then(|node| node.get_input_type(edge.3))
-            .ok_or(GraphError::InputTypeUnavailable(edge.2, edge.3))?;
+            .get(&to.0)
+            .and_then(|node| node.get_input_type(to.1))
+            .ok_or(GraphError::InputTypeUnavailable(to.0, to.1))?;
 
         if output_type != input_type {
-            return Err(GraphError::NodeTypeMismatch((
-                edge.0, edge.1, edge.2, edge.3,
-            )));
+            return Err(GraphError::NodeTypeMismatch((from.0, from.1, to.0, to.1)));
         }
 
-        self.edges.push(edge);
+        self.input_sources
+            .insert(to, InputSource::Edge(from.0, from.1));
         Ok(())
     }
 
     /// Removes the edge from the graph.
-    /// Returns an error if the node is not found.
-    pub fn remove_edge(&mut self, edge: (NodeID, usize, NodeID, usize)) -> Result<(), GraphError> {
-        if let Some(pos) = self.edges.iter().position(|e| *e == edge) {
-            self.edges.remove(pos);
-            Ok(())
-        } else {
-            Err(GraphError::EdgeNotFound(edge))
-        }
+    pub fn remove_edge(&mut self, to: &(NodeID, usize)) {
+        self.input_sources.remove(to);
     }
 
     // --- AUDIO CONTEXT UPDATING ---
@@ -282,18 +291,21 @@ impl Graph {
         self.zero_buffer = vec![0u8; max_size * playback_ctx.buffer_size];
 
         // Build node_inputs from edges
-        for edge in &self.edges {
-            let Some(ptr) = self
-                .output_buffers
-                .get(&(edge.0, edge.1))
-                .map(|b| b.as_ptr())
-            else {
-                return Err(GraphError::OutputBufferNotFound(edge.0, edge.1));
-            };
+        for (to, input_source) in &self.input_sources {
+            if let &InputSource::Edge(from_node, from_output) = input_source {
+                let Some(ptr) = self
+                    .output_buffers
+                    .get(&(from_node, from_output))
+                    .map(|b| b.as_ptr())
+                else {
+                    return Err(GraphError::OutputBufferNotFound(from_node, from_output));
+                };
 
-            self.node_inputs.entry(edge.2).or_insert_with(|| {
-                vec![self.zero_buffer.as_ptr(); self.nodes[&edge.2].get_input_len()]
-            })[edge.3] = ptr;
+                // Insert the pointer to the input buffer of the node
+                self.node_inputs.entry(to.0).or_insert_with(|| {
+                    vec![self.zero_buffer.as_ptr(); self.nodes[&to.0].get_input_len()]
+                })[to.1] = ptr;
+            }
         }
 
         // For nodes that have no input, set the input buffer to the zero buffer

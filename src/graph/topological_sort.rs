@@ -1,4 +1,4 @@
-use crate::graph::{Graph, error::GraphError, node_id::NodeID};
+use crate::graph::{Graph, InputSource, error::GraphError, node_id::NodeID};
 use std::collections::HashMap;
 
 #[derive(PartialEq)]
@@ -14,8 +14,10 @@ impl Graph {
     pub fn sort_graph(&mut self) -> Result<(), GraphError> {
         // Rebuild adjacency from edges so the sort reflects the current graph structure
         self.adjacency.clear();
-        for edge in &self.edges {
-            self.adjacency.entry(edge.0).or_default().push(edge.2);
+        for (to, input_source) in &self.input_sources {
+            if let &InputSource::Edge(from_node, _) = input_source {
+                self.adjacency.entry(from_node).or_default().push(to.0);
+            }
         }
 
         // Create visited and sorted array
