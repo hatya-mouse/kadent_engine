@@ -1,17 +1,19 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{
     data_types::{PlaybackContext, Ticks},
     graph::automation::{constant::ConstantAutomationCursor, float::FloatAutomationCursor},
     mixer::TempoMap,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Keyframe<T> {
     pub ticks: Ticks,
     pub value: T,
 }
 
 /// A track that stores keyframes for a specific node and input index.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AutomationTrack {
     /// Float keyframe track, used for continuous values.
     /// The value is interpolated between keyframes based on the gradient calculated during preparation.
@@ -43,12 +45,16 @@ pub enum AutomationTrack {
         /// ```
         /// [(100, gradient_value_1), (200, gradient_value_2), (300, gradient_value_3)]
         /// ```
+        #[serde(skip)]
         gradient_vals: Vec<(usize, f32)>,
         /// Cached sample indices of the keyframes, sorted in the order of the keyframe index.
+        #[serde(skip)]
         keyframe_samples: Vec<usize>,
         /// The cursor that gets the constant value at the specific sample index.
+        #[serde(skip)]
         const_cursor: ConstantAutomationCursor,
         /// The cursor that calculates the gradient at the specific sample index.
+        #[serde(skip)]
         float_cursor: FloatAutomationCursor,
     },
     /// Integer keyframe track, used for discrete values.
@@ -57,8 +63,10 @@ pub enum AutomationTrack {
         /// The vector of keyframes, sorted by ticks.
         keyframes: Vec<Keyframe<i32>>,
         /// Cached sample indices of the keyframes, sorted in the order of the keyframe index.
+        #[serde(skip)]
         keyframe_samples: Vec<usize>,
         /// The cursor that keeps track of the current position in the automation track for processing.
+        #[serde(skip)]
         automation_cursor: ConstantAutomationCursor,
     },
     /// Boolean keyframe track.
@@ -67,8 +75,10 @@ pub enum AutomationTrack {
         /// The vector of keyframes, sorted by ticks.
         keyframes: Vec<Keyframe<bool>>,
         /// Cached sample indices of the keyframes, sorted in the order of the keyframe index.
+        #[serde(skip)]
         keyframe_samples: Vec<usize>,
         /// The cursor that keeps track of the current position in the automation track for processing.
+        #[serde(skip)]
         automation_cursor: ConstantAutomationCursor,
     },
 }

@@ -9,9 +9,10 @@ use crate::{
     mixer::TempoMap,
     node::Node,
 };
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum InputSource {
     Edge(NodeID, usize),
     Keyframe,
