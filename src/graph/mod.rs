@@ -46,7 +46,7 @@ pub struct Graph {
 
     // --- KEYFRAMES ---
     /// The keyframe manager that calculates and holds the keyframe values for each node and input index.
-    keyframe_manager: KeyframeManager,
+    pub keyframe_manager: KeyframeManager,
 
     // --- MISC ---
     next_node_id: u64,
