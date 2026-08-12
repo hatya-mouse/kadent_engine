@@ -10,7 +10,7 @@ pub use note_modifier::{NoteModifier, NoteModifierID};
 pub use note_region::NoteRegion;
 
 use crate::{
-    data_types::{EventSlot, MidiEvent},
+    data_types::{Event, EventSlot, MidiEvent},
     graph::Graph,
     node::builtin::{AudioOutputNode, NoteInputNode},
     track::{RegionID, note_track::processed_note::ProcessedNote},
@@ -40,7 +40,9 @@ pub struct NoteTrack {
     /// Voice Events such as NoteOn and NoteOff.
     voice_events: BinaryHeap<Reverse<VoiceEvent>>,
     /// Voice events that could not be processed in the previous sample and are pending to be processed in the next sample.
-    delayed_voice_events: VecDeque<VoiceEvent>,
+    delayed_events: VecDeque<Event>,
+    /// Pitch values of currently playing sequenced voices, which are used to stop the notes when pausing.
+    playing_sequenced_voices: Vec<f32>,
 
     // --- MIDI VOICE INSERTION ---
     /// Pending MIDI events to be processied in the next buffer.

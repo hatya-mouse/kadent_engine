@@ -1,7 +1,10 @@
 use crate::{
     data_types::{Event, EventSlot, PlaybackContext, Ticks},
     mixer::TempoMap,
-    track::note_track::{Note, NoteTrack, ProcessedNote, VoiceEvent, voice_event::VoiceEventKind},
+    track::note_track::{
+        Note, NoteTrack, ProcessedNote, VoiceEvent,
+        voice_event::{VoiceEventKind, VoiceSource},
+    },
 };
 use std::cmp::Reverse;
 
@@ -108,10 +111,12 @@ impl NoteTrack {
                     pitch: note.pitch,
                     velocity: note.velocity,
                 },
+                VoiceSource::Sequenced,
             )));
             self.voice_events.push(Reverse(VoiceEvent::new(
                 absolute_end_sample,
                 VoiceEventKind::NoteOff { pitch: note.pitch },
+                VoiceSource::Sequenced,
             )));
         }
     }
@@ -121,8 +126,12 @@ impl NoteTrack {
         let mut event_slot = EventSlot::default();
 
         // Process the delayed voice events first, if any
-        while let Some(event) = self.delayed_voice_events.pop_front() {
-            self.process_voice_event(event, &mut event_slot);
+        while let Some(event) = self.delayed_events.pop_front() {
+            if event_slot.is_full() {
+                self.delayed_events.push_front(event);
+                break;
+            }
+            event_slot.add_event(event);
         }
 
         // Consume event and create events
@@ -131,14 +140,15 @@ impl NoteTrack {
             if event.sample_time > sample {
                 // If the event is AFTER the current sample, break the loop
                 break;
-            } else if event.sample_time < sample {
-                // If the event is BEFORE the current sample, consume it and continue the loop
-                self.voice_events.pop();
-                continue;
             }
 
             // Consume the event
             self.voice_events.pop();
+            if event.sample_time < sample {
+                // If the event is BEFORE the current sample, continue the loop after consuming it
+                continue;
+            }
+
             // Then process the voice event
             self.process_voice_event(event, &mut event_slot);
         }
@@ -146,20 +156,39 @@ impl NoteTrack {
         self.event_buffer.push(event_slot);
     }
 
+    /// Stops the currently playing sequenced notes.
+    pub(super) fn stop_sequenced_notes(&mut self) {
+        for pitch in self.playing_sequenced_voices.drain(..) {
+            self.delayed_events.push_back(Event::new(0, pitch, 0.0));
+        }
+    }
+
+    /// Creates an Event from a VoiceEvent and adds it to the given EventSlot.
     fn process_voice_event(&mut self, voice_event: VoiceEvent, event_slot: &mut EventSlot) {
         match &voice_event.kind {
             VoiceEventKind::NoteOn { pitch, velocity } => {
+                if voice_event.source == VoiceSource::Sequenced {
+                    self.playing_sequenced_voices.push(*pitch);
+                }
+
+                let event = Event::new(1, *pitch, *velocity);
                 if event_slot.is_full() {
-                    self.delayed_voice_events.push_back(voice_event);
+                    self.delayed_events.push_back(event);
                 } else {
-                    event_slot.add_event(Event::new(1, *pitch, *velocity));
+                    event_slot.add_event(event);
                 }
             }
             VoiceEventKind::NoteOff { pitch } => {
+                if voice_event.source == VoiceSource::Sequenced {
+                    self.playing_sequenced_voices
+                        .retain(|voice_pitch| voice_pitch != pitch);
+                }
+
+                let event = Event::new(0, *pitch, 0.0);
                 if event_slot.is_full() {
-                    self.delayed_voice_events.push_back(voice_event);
+                    self.delayed_events.push_back(event);
                 } else {
-                    event_slot.add_event(Event::new(0, *pitch, 0.0));
+                    event_slot.add_event(event);
                 }
             }
         }

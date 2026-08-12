@@ -58,6 +58,8 @@ impl Track for NoteTrack {
     fn seek(&mut self, _playhead: usize, _playback_ctx: &PlaybackContext) {
         // Clear the voices and events
         self.voice_events.clear();
+        // Pause and clear the playing sequenced notes
+        self.stop_sequenced_notes();
     }
 
     // --- TRACK PROCESSING ---
@@ -100,6 +102,9 @@ impl Track for NoteTrack {
         if is_playing {
             // Create voice events from sequenced notes
             self.create_events_from_notes(playhead, tempo_map, playback_ctx);
+        } else {
+            // Is it is paused, pause all sequenced notes
+            self.stop_sequenced_notes();
         }
 
         for sample in playhead..buffer_end {
