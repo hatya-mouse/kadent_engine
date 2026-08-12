@@ -9,7 +9,6 @@ use std::ptr::copy_nonoverlapping;
 #[derive(Default, Clone)]
 pub struct AudioInputNode {
     data_type: TypeInfo,
-    actual_size: usize,
 }
 
 impl Node for AudioInputNode {
@@ -49,9 +48,8 @@ impl Node for AudioInputNode {
         self.data_type = TypeInfo::new(size_of::<Sample>(), align_of::<Sample>());
     }
 
-    fn prepare(&mut self, playback_ctx: &PlaybackContext) -> Result<(), Box<dyn NodeError>> {
+    fn prepare(&mut self, _playback_ctx: &PlaybackContext) -> Result<(), Box<dyn NodeError>> {
         self.data_type = TypeInfo::new(size_of::<Sample>(), align_of::<Sample>());
-        self.actual_size = self.data_type.actual_size(playback_ctx.buffer_size);
         Ok(())
     }
 
@@ -59,13 +57,16 @@ impl Node for AudioInputNode {
         &mut self,
         inputs: &[*const u8],
         outputs: &[*mut u8],
-        _playback_ctx: &PlaybackContext,
+        playback_ctx: &PlaybackContext,
     ) {
         for (input, output) in inputs.iter().zip(outputs.iter()) {
             unsafe {
                 // Copy the entire input to the output
-                // The buffer is of u8 type, so the size of the data type must be the same as the size of the buffer
-                copy_nonoverlapping(*input, *output, self.actual_size);
+                copy_nonoverlapping(
+                    *input,
+                    *output,
+                    self.data_type.actual_size(playback_ctx.buffer_size),
+                );
             }
         }
     }
