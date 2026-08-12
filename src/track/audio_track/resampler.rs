@@ -1,3 +1,8 @@
+use rayon::{
+    iter::{IndexedParallelIterator, ParallelIterator},
+    slice::ParallelSliceMut,
+};
+
 pub fn resample_channels(
     source: &[f32],
     source_samples: usize,
@@ -21,27 +26,28 @@ pub fn resample_channels(
     let active_channels = target_channels.min(source_channels);
 
     // Loop through each sample in the target array
-    for sample in 0..target_samples {
-        // Calculate the corresponding position in the source array
-        let src_pos = sample as f64 * ratio;
-        let index = src_pos as usize;
-        let remainder = (src_pos - index as f64) as f32;
+    output
+        .par_chunks_exact_mut(target_channels)
+        .enumerate()
+        .for_each(|(sample, sample_buffer)| {
+            // Calculate the corresponding position in the source array
+            let src_pos = sample as f64 * ratio;
+            let index = src_pos as usize;
 
-        if index + 1 >= source_samples {
-            break;
-        }
+            if index + 1 < source_samples {
+                let gradient = (src_pos - index as f64) as f32;
 
-        // Get numbers to interpolate between
-        let src_index_0 = index * source_channels;
-        let src_index_1 = (index + 1) * source_channels;
-        let dst_index = sample * target_channels;
+                // Get numbers to interpolate between
+                let src_index_0 = index * source_channels;
+                let src_index_1 = (index + 1) * source_channels;
 
-        for channel in 0..active_channels {
-            let src_0 = source[src_index_0 + channel];
-            let src_1 = source[src_index_1 + channel];
-            output[dst_index + channel] = src_0 + (src_1 - src_0) * remainder;
-        }
-    }
+                for channel in 0..active_channels {
+                    let src_0 = source[src_index_0 + channel];
+                    let src_1 = source[src_index_1 + channel];
+                    sample_buffer[channel] = src_0 + (src_1 - src_0) * gradient;
+                }
+            }
+        });
 
     output
 }
