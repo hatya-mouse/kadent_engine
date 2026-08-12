@@ -16,13 +16,13 @@ pub(super) fn spawn_export_thread(
         let buffer_size = playback_ctx.buffer_size;
         let channels = playback_ctx.channels;
 
-        let mut mixer = match project.prepare(playback_ctx) {
-            Ok(mixer) => mixer,
-            Err(err) => {
-                result_tx.send(Err(AudioError::GraphError(err))).unwrap();
-                return;
-            }
-        };
+        // Don't abort the export even if some track fails to prepare
+        let (mut mixer, errors) = project.prepare(playback_ctx);
+        for (track_id, err) in errors {
+            result_tx
+                .send(Err(AudioError::TrackPrepareFailed(track_id, err)))
+                .ok();
+        }
 
         mixer.seek(start_sample);
 

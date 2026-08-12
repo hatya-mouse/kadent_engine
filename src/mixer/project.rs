@@ -110,15 +110,19 @@ impl Project {
     // --- MIXING PREPARATION ---
 
     /// Prepares the tracks in the mixer for the playback.
-    pub fn prepare(mut self, playback_ctx: PlaybackContext) -> Result<Mixer, GraphError> {
+    /// Tracks that fail to prepare will just be skipped, and their errors will be returned.
+    pub fn prepare(mut self, playback_ctx: PlaybackContext) -> (Mixer, Vec<(TrackID, GraphError)>) {
         // Prepare the tempo map first
         self.tempo_map.prepare(playback_ctx.clone());
 
-        // Prepare the tracks one by one
-        for track in self.tracks.values_mut() {
-            track.prepare(&self.tempo_map, &playback_ctx)?;
+        // Prepare the tracks one by one, collecting errors instead of aborting on the first one
+        let mut errors = Vec::new();
+        for (id, track) in self.tracks.iter_mut() {
+            if let Err(err) = track.prepare(&self.tempo_map, &playback_ctx) {
+                errors.push((*id, err));
+            }
         }
 
-        Ok(Mixer::new(self, playback_ctx))
+        (Mixer::new(self, playback_ctx), errors)
     }
 }

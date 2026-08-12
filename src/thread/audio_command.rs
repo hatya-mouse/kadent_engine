@@ -24,8 +24,11 @@ pub enum AudioResult {
 }
 
 pub enum AudioError {
-    GraphError(GraphError),
+    /// Indicates that the track preparation failed for a specific track.
+    TrackPrepareFailed(TrackID, GraphError),
+    /// Indicates that a CPAL stream error has occured during playback.
     PlayStreamError(cpal::Error),
+    /// Indicates that an audio command failed to be processed, which means that it is likely that the audio thread is frozen or crashed.
     CommandFailed(AudioCommand),
 }
 

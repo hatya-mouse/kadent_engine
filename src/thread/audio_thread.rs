@@ -107,17 +107,17 @@ pub(super) fn audio_thread(
                     let playback_ctx = latest_playback_ctx.clone();
                     std::thread::spawn(move || {
                         // Prepare the project before applying the project
-                        match new_project.prepare(playback_ctx) {
-                            Ok(mixer) => {
-                                // Check if the mixer is the latest one
-                                if gen_arc.load(Ordering::SeqCst) == current_gen {
-                                    // Send the prepared mixer to the audio playback thread
-                                    *latest_arc.lock().unwrap() = Some(mixer);
-                                }
-                            }
-                            Err(err) => {
-                                result_tx.send(Err(AudioError::GraphError(err))).unwrap();
-                            }
+                        let (mixer, errors) = new_project.prepare(playback_ctx);
+                        for (track_id, err) in errors {
+                            // Send the error to the audio thread, but don't abort the preparation
+                            result_tx
+                                .send(Err(AudioError::TrackPrepareFailed(track_id, err)))
+                                .ok();
+                        }
+                        // Check if the mixer is the latest one
+                        if gen_arc.load(Ordering::SeqCst) == current_gen {
+                            // Send the prepared mixer to the audio playback thread
+                            *latest_arc.lock().unwrap() = Some(mixer);
                         }
                     });
                 }
