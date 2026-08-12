@@ -62,11 +62,13 @@ impl Node for AudioOutputNode {
         for (input, output) in inputs.iter().zip(outputs.iter()) {
             unsafe {
                 // Write the input data to the output buffer
+                println!("Before copy_nonoverlapping in AudioOutputNode");
                 copy_nonoverlapping(
                     *input,
                     *output,
                     self.data_type.actual_size(playback_ctx.buffer_size),
                 );
+                println!("After copy_nonoverlapping in AudioOutputNode");
             }
         }
     }
