@@ -62,11 +62,13 @@ impl Node for NoteInputNode {
         for (input, output) in inputs.iter().zip(outputs.iter()) {
             unsafe {
                 // Copy the entire input to the output
+                println!("Before copy_nonoverlapping in NoteInputNode");
                 copy_nonoverlapping(
                     *input,
                     *output,
                     self.data_type.actual_size(playback_ctx.buffer_size),
                 );
+                println!("Before copy_nonoverlapping in NoteOutputNode");
             }
         }
     }
