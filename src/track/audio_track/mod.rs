@@ -19,6 +19,9 @@ pub struct AudioTrack {
 
     // --- RAW AUDIO DATA ---
     regions: HashMap<RegionID, AudioRegion>,
+    /// Pre-processed audio data for the audio track.
+    /// The data is stored in the form of a interleaved buffer with `MAX_CHANNELS` channels.
+    /// This means that this buffer can be reinterpreted as an array of `Sample` type, which has `MAX_CHANNELS` channels.
     pre_processed: Vec<f32>,
 
     // --- LOCAL BUFFER ---

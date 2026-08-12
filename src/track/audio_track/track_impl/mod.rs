@@ -1,6 +1,7 @@
 mod process;
 
 use crate::{
+    MAX_CHANNELS,
     data_types::{PlaybackContext, Ticks},
     graph::{Graph, error::GraphError},
     mixer::TempoMap,
@@ -74,20 +75,17 @@ impl Track for AudioTrack {
             end_samples.div_ceil(playback_ctx.buffer_size) * playback_ctx.buffer_size;
 
         // Initialize the processed vector with zeros
-        self.pre_processed = vec![0.0; total_samples * playback_ctx.channels];
+        self.pre_processed = vec![0.0; total_samples * MAX_CHANNELS];
 
         // Resample the each regions and add them to the pre_processed buffer
         for region in self.regions.values() {
-            let resampled = tempo_strech(
-                region,
-                playback_ctx.sample_rate,
-                playback_ctx.channels,
-                tempo_map,
-            );
+            // Pass MAX_CHANNELS instead of playback_ctx.channels to tempo_strech
+            // so that the resampled audio is an interleaved buffer with `MAX_CHANNELS` channels,
+            // which is as the same as the `Sample` type used to process the graph.
+            let resampled = tempo_strech(region, playback_ctx.sample_rate, MAX_CHANNELS, tempo_map);
 
             // Calculate the start sample index
-            let region_start_index =
-                tempo_map.ticks_to_samples(region.start) * playback_ctx.channels;
+            let region_start_index = tempo_map.ticks_to_samples(region.start) * MAX_CHANNELS;
 
             let available = self.pre_processed.len().saturating_sub(region_start_index);
             let copy_end = resampled.len().min(available);

@@ -310,7 +310,7 @@ impl Graph {
                 max_size = max_size.max(type_info.actual_size(playback_ctx.buffer_size));
             }
         }
-        self.zero_buffer = vec![0u8; max_size * playback_ctx.buffer_size];
+        self.zero_buffer = vec![0u8; max_size];
 
         // Build node_inputs from edges
         for (to, input_source) in &self.input_sources {
