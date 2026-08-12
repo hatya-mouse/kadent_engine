@@ -67,8 +67,6 @@ impl Mixer {
             // Local buffer is an interleaved buffer with MAX_CHANNELS channels,
             // so we need to get only the required channels for the output buffer
             let local_buf = track.get_local_buffer();
-            println!("\n\n\n\n{:?}", local_buf);
-
             for sample in 0..output_samples {
                 let src_sample_offset = sample * MAX_CHANNELS;
                 let dst_sample_offset = sample * channels;
