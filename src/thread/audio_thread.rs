@@ -1,5 +1,5 @@
 use crate::{
-    data_types::MidiEvent,
+    data_types::{MidiEvent, PlaybackContext},
     mixer::Mixer,
     thread::{
         AudioCommand, AudioError, AudioResult, export,
@@ -21,15 +21,15 @@ pub(super) fn audio_thread(
     vu_prod: ringbuf::HeapProd<f32>,
     playhead: Arc<AtomicU64>,
     playhead_ticks: Arc<AtomicI64>,
-    initial_mixer: Mixer,
+    playback_ctx: PlaybackContext,
 ) {
     let (mut command_prod, command_cons) = ringbuf::HeapRb::<AudioCommand>::new(64).split();
     let (mut midi_sub_prod, midi_sub_cons) = ringbuf::HeapRb::<MidiEvent>::new(64).split();
 
     // The latest playback context, tied to the latest prepared mixer.
-    let mut latest_playback_ctx = initial_mixer.playback_ctx.clone();
+    let mut latest_playback_ctx = playback_ctx;
     // A variable to hold the latest prepared mixer, which will be used by the output callback
-    let latest_mixer = Arc::new(Mutex::new(initial_mixer));
+    let latest_mixer = Arc::new(Mutex::new(None));
     // Manage is_playing using Arc
     let is_playing = Arc::new(AtomicBool::new(false));
     // Create a generation variable to keep track of the latest prepared mixer
@@ -112,7 +112,7 @@ pub(super) fn audio_thread(
                                 // Check if the mixer is the latest one
                                 if gen_arc.load(Ordering::SeqCst) == current_gen {
                                     // Send the prepared mixer to the audio playback thread
-                                    *latest_arc.lock().unwrap() = mixer;
+                                    *latest_arc.lock().unwrap() = Some(mixer);
                                 }
                             }
                             Err(err) => {
@@ -189,7 +189,7 @@ fn recreate_output_callback(
     callback_ctx: &Arc<Mutex<OutputCallbackContext>>,
     callback_state: OutputCallbackState,
     midi_sub_prod: &mut ringbuf::HeapProd<MidiEvent>,
-    latest_mixer: &Arc<Mutex<Mixer>>,
+    latest_mixer: &Arc<Mutex<Option<Mixer>>>,
 ) {
     stream.take();
 

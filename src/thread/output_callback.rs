@@ -34,7 +34,7 @@ pub(super) fn output_callback(
     device: cpal::Device,
     config: cpal::StreamConfig,
     state: OutputCallbackState,
-    latest_mixer: Arc<Mutex<Mixer>>,
+    latest_mixer: Arc<Mutex<Option<Mixer>>>,
 ) -> cpal::Stream {
     let mut armed_track: Option<TrackID> = None;
     let ctx_clone = ctx.clone();
@@ -46,7 +46,10 @@ pub(super) fn output_callback(
                 let Ok(mut ctx) = ctx.try_lock() else {
                     return;
                 };
-                let Ok(mut mixer) = latest_mixer.try_lock() else {
+                let Ok(mut guard) = latest_mixer.try_lock() else {
+                    return;
+                };
+                let Some(mixer) = guard.as_mut() else {
                     return;
                 };
 

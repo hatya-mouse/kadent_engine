@@ -7,10 +7,7 @@ mod output_callback;
 pub use audio_command::{AudioCommand, AudioError, AudioResult};
 pub use handle::AudioThreadHandle;
 
-use crate::{
-    data_types::{MidiEvent, PlaybackContext},
-    mixer::Project,
-};
+use crate::data_types::{MidiEvent, PlaybackContext};
 use ringbuf::{HeapRb, traits::Split};
 use std::{
     sync::{
@@ -25,7 +22,6 @@ pub struct AudioThread;
 
 impl AudioThread {
     pub fn spawn(
-        initial_project: Project,
         playback_ctx: PlaybackContext,
     ) -> (AudioThreadHandle, ringbuf::HeapProd<MidiEvent>) {
         // MPSC channels to send commands to the processing threads from the host.
@@ -44,15 +40,6 @@ impl AudioThread {
 
         // --- MAIN AUDIO THREAD ---
         thread::spawn(move || {
-            // Prepare the initial project
-            let mixer = match initial_project.prepare(playback_ctx) {
-                Ok(mixer) => mixer,
-                Err(err) => {
-                    result_tx.send(Err(AudioError::GraphError(err))).unwrap();
-                    return;
-                }
-            };
-
             audio_thread::audio_thread(
                 audio_command_rx,
                 result_tx,
@@ -60,7 +47,7 @@ impl AudioThread {
                 vu_producer,
                 playhead_clone,
                 playhead_ticks_clone,
-                mixer,
+                playback_ctx,
             );
         });
 
