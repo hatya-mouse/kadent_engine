@@ -199,6 +199,25 @@ impl Graph {
         self.input_sources.remove(to);
     }
 
+    /// Get all edges in the graph.
+    ///
+    /// # Return
+    /// ```
+    /// (from_node, from_output, to_node, to_input)
+    /// ```
+    pub fn get_all_edges(&self) -> Vec<(NodeID, usize, NodeID, usize)> {
+        self.input_sources
+            .iter()
+            .filter_map(|((to_node, to_input), source)| {
+                if let InputSource::Edge(from_node, from_output) = source {
+                    Some((*from_node, *from_output, *to_node, *to_input))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
     // --- AUDIO CONTEXT UPDATING ---
 
     /// Sets the audio context to the new one.
