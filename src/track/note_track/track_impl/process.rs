@@ -144,6 +144,7 @@ impl NoteTrack {
         }
 
         self.event_buffer.push(event_slot);
+        println!("{:?}", event_slot);
     }
 
     fn process_voice_event(&mut self, voice_event: VoiceEvent, event_slot: &mut EventSlot) {
