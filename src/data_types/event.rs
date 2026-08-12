@@ -4,7 +4,7 @@ use crate::MAX_EVENTS;
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct Event {
-    // 0 = note off, 1 = note on
+    // -1 = not set, 0 = note off, 1 = note on
     pub event_type: i32,
     // A MIDI note number.
     pub pitch: f32,
@@ -15,7 +15,7 @@ pub struct Event {
 impl Default for Event {
     fn default() -> Self {
         Self {
-            event_type: 0,
+            event_type: -1,
             pitch: 0.0,
             velocity: 0.0,
         }
