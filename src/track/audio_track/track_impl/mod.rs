@@ -79,19 +79,21 @@ impl Track for AudioTrack {
 
         // Resample the each regions and add them to the pre_processed buffer
         for region in self.regions.values() {
+            // Calculate the start sample index
+            let region_start_sample = tempo_map.ticks_to_samples(region.start) * MAX_CHANNELS;
+            let copy_len = self.pre_processed.len().saturating_sub(region_start_sample);
+            let region_end_sample = region_start_sample + copy_len;
+
             // Pass MAX_CHANNELS instead of playback_ctx.channels to tempo_strech
             // so that the resampled audio is an interleaved buffer with `MAX_CHANNELS` channels,
-            // which is as the same as the `Sample` type used to process the graph.
-            let resampled = tempo_strech(region, playback_ctx.sample_rate, MAX_CHANNELS, tempo_map);
-
-            // Calculate the start sample index
-            let region_start_index = tempo_map.ticks_to_samples(region.start) * MAX_CHANNELS;
-
-            let available = self.pre_processed.len().saturating_sub(region_start_index);
-            let copy_end = resampled.len().min(available);
-            for (i, sample) in resampled[..copy_end].iter().enumerate() {
-                self.pre_processed[region_start_index + i] += sample;
-            }
+            // which is as the same as the `Sample` type used to process the graph
+            tempo_strech(
+                region,
+                &mut self.pre_processed[region_start_sample..region_end_sample],
+                playback_ctx.sample_rate,
+                MAX_CHANNELS,
+                tempo_map,
+            );
         }
 
         // Initialize the local buffers

@@ -8,11 +8,13 @@ use crate::{
 /// The returned audio data will start at the beginning of the region.
 pub fn tempo_strech(
     src_region: &AudioRegion,
+    dst_buffer: &mut [f32],
     target_sample_rate: u64,
     target_channels: usize,
     tempo_map: &TempoMap,
-) -> Vec<f32> {
+) {
     let region_end = src_region.start + src_region.duration;
+    let src_channels = src_region.channels as usize;
 
     // Create a section list by splitting the region into sections based on tempo change events
     // Get the first event on or before the region start beat
@@ -55,9 +57,7 @@ pub fn tempo_strech(
     // so section ticks must be offset by the region's start sample
     let region_start_sample = tempo_map.ticks_to_samples(src_region.start);
 
-    let estimted_output_len = src_region.frames * target_channels * target_sample_rate as usize
-        / src_region.sample_rate as usize;
-    let mut output_data = Vec::with_capacity(estimted_output_len);
+    let mut output_data = Vec::new();
 
     // Resample each tempo section and append it to the output data
     for section in sections {
@@ -78,8 +78,8 @@ pub fn tempo_strech(
         }
 
         // Calculate the start and end index of the section in the source buffer
-        let src_start_index = src_start_sample * src_region.channels as usize;
-        let src_end_index = src_end_sample * src_region.channels as usize;
+        let src_start_index = src_start_sample * src_channels;
+        let src_end_index = src_end_sample * src_channels;
 
         // Then get the section data from the source buffer
         let section_data = &src_region.data[src_start_index..src_end_index];
@@ -89,16 +89,26 @@ pub fn tempo_strech(
             (src_region.sample_rate as f64 * (src_region.base_bpm / section.2)) as u64;
         let resampled_data = resample_channels(
             section_data,
+            src_channels,
             section_samples,
             src_sample_rate,
-            src_region.channels as usize,
             target_sample_rate,
-            target_channels,
         );
 
         // Append the resampled audio to the output data
         output_data.extend(resampled_data);
     }
 
-    output_data
+    let active_channels = target_channels.min(src_channels);
+
+    // Finally add the output data to the output buffer while interleaving the channels
+    for (dst_frame, src_frame) in dst_buffer
+        .chunks_exact_mut(target_channels)
+        .zip(output_data.chunks_exact(src_channels))
+    {
+        for ch in 0..active_channels {
+            // Add the sample value
+            dst_frame[ch] += src_frame[ch];
+        }
+    }
 }
