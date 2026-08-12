@@ -157,12 +157,10 @@ impl AutomationTrack {
             } => {
                 // Clear the cursor cache
                 automation_cursor.clear_cache();
-
-                keyframe_samples.clear();
-                for keyframe in keyframes.iter() {
-                    let sample = tempo_map.ticks_to_samples(keyframe.ticks);
-                    keyframe_samples.push(sample);
-                }
+                *keyframe_samples = keyframes
+                    .iter()
+                    .map(|keyframe| tempo_map.ticks_to_samples(keyframe.ticks))
+                    .collect();
             }
             AutomationTrack::Bool {
                 keyframes,
@@ -171,12 +169,10 @@ impl AutomationTrack {
             } => {
                 // Clear the cursor cache
                 automation_cursor.clear_cache();
-
-                keyframe_samples.clear();
-                for keyframe in keyframes.iter() {
-                    let sample = tempo_map.ticks_to_samples(keyframe.ticks);
-                    keyframe_samples.push(sample);
-                }
+                *keyframe_samples = keyframes
+                    .iter()
+                    .map(|keyframe| tempo_map.ticks_to_samples(keyframe.ticks))
+                    .collect();
             }
         }
     }

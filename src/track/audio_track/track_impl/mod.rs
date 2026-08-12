@@ -109,8 +109,9 @@ impl Track for AudioTrack {
         playback_ctx: &PlaybackContext,
     ) {
         if is_playing {
-            let buffer_start = playhead * playback_ctx.channels;
-            let buffer_size = playback_ctx.buffer_size * playback_ctx.channels;
+            // Calculate the number of f32 values to process for the current buffer
+            let buffer_start = playhead * MAX_CHANNELS;
+            let buffer_size = playback_ctx.buffer_size * MAX_CHANNELS;
             let buffer_end = buffer_start + buffer_size;
 
             // Create a vector for input buffer
@@ -128,6 +129,7 @@ impl Track for AudioTrack {
                         &self.pre_processed[buffer_start..buffer_start + available],
                     );
                 }
+                println!("\n\n\n\ninput_vec: {:?}", &input_vec);
                 input_vec.as_ptr() as *const u8
             };
 

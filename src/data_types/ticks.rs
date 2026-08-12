@@ -48,13 +48,7 @@ impl PartialOrd for Ticks {
 
 impl Ord for Ticks {
     fn cmp(&self, other: &Self) -> Ordering {
-        if self.0 > other.0 {
-            Ordering::Greater
-        } else if self.0 == other.0 {
-            Ordering::Equal
-        } else {
-            Ordering::Less
-        }
+        self.0.cmp(&other.0)
     }
 }
 
