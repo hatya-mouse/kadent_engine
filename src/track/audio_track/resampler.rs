@@ -1,5 +1,3 @@
-const FP_TO_F32_SCALE: f32 = 1.0 / (1u64 << 32) as f32;
-
 pub fn resample_channels(
     source: &[f32],
     source_samples: usize,
@@ -8,38 +6,40 @@ pub fn resample_channels(
     target_sample_rate: u64,
     target_channels: usize,
 ) -> Vec<f32> {
-    // Calculate the ratio of the source and the target sample rate
-    let ratio_fp = (source_sample_rate << 32) / target_sample_rate;
-    let source_samples_fp = (source_samples as u64) << 32;
+    if source_samples == 0 || target_sample_rate == 0 {
+        return Vec::new();
+    }
 
     // Calculate the length of the output array (interleaved) and fill it with zeros
-    let full_len = target_channels
-        * (source_samples as u128 * target_sample_rate as u128 / source_sample_rate as u128)
-            as usize;
+    let target_samples = ((source_samples as u128 * target_sample_rate as u128)
+        / source_sample_rate as u128) as usize;
+    let full_len = target_samples * target_channels;
     let mut output = vec![0f32; full_len];
 
-    for target_channel in 0..target_channels.min(source_channels) {
-        let mut read_pos_fp = 0u64;
-        let mut output_sample_count = target_channel;
+    // Calculate the ratio of the source and the target sample rate
+    let ratio = source_sample_rate as f64 / target_sample_rate as f64;
+    let active_channels = target_channels.min(source_channels);
 
-        while read_pos_fp + (1u64 << 32) < source_samples_fp {
-            // Calculate the index from the read position
-            let index = (read_pos_fp >> 32) as usize;
-            let remainder_fp = read_pos_fp & 0xFFFFFFFF;
-            let remainder = remainder_fp as f32 * FP_TO_F32_SCALE;
+    // Loop through each sample in the target array
+    for sample in 0..target_samples {
+        // Calculate the corresponding position in the source array
+        let src_pos = sample as f64 * ratio;
+        let index = src_pos as usize;
+        let remainder = (src_pos - index as f64) as f32;
 
-            // Get the two samples to interpolate the sample
-            let src_before = source[index * source_channels + target_channel];
-            let src_after = source[(index + 1) * source_channels + target_channel];
-            // Perform linear interpolation (Lerp)
-            let interpolated_sample = src_before + remainder * (src_after - src_before);
-            if let Some(sample) = output.get_mut(output_sample_count) {
-                *sample = interpolated_sample;
-            }
+        if index + 1 >= source_samples {
+            break;
+        }
 
-            // Increment the read position and sample count
-            read_pos_fp += ratio_fp;
-            output_sample_count += target_channels;
+        // Get numbers to interpolate between
+        let src_index_0 = index * source_channels;
+        let src_index_1 = (index + 1) * source_channels;
+        let dst_index = sample * target_channels;
+
+        for channel in 0..active_channels {
+            let src_0 = source[src_index_0 + channel];
+            let src_1 = source[src_index_1 + channel];
+            output[dst_index + channel] = src_0 + (src_1 - src_0) * remainder;
         }
     }
 

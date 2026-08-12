@@ -22,8 +22,11 @@ pub fn tempo_strech(
         .saturating_sub(1);
     // Loop over the events until it surpasses the region end beat
     // (0: Start ticks, 1: End ticks, 2: BPM of the section)
-    let mut sections: Vec<(Ticks, Ticks, f64)> = Vec::new();
+    // Allocate a vector with a capacity of 16 for now,
+    // assuming the number of tempo change in a region is not so large in common cases
+    let mut sections: Vec<(Ticks, Ticks, f64)> = Vec::with_capacity(16);
     let mut i = start_index;
+
     while let Some(event) = tempo_map.events.get(i) {
         // Break if the event beat surpasses the region end beat
         if event.ticks() >= region_end {
@@ -44,7 +47,6 @@ pub fn tempo_strech(
 
         // Push the section
         sections.push((section_start, section_end, event.bpm()));
-
         i += 1;
     }
 
@@ -53,7 +55,11 @@ pub fn tempo_strech(
     // so section ticks must be offset by the region's start sample
     let region_start_sample = tempo_map.ticks_to_samples(src_region.start);
 
-    let mut output_data = Vec::new();
+    let estimted_output_len = src_region.frames * target_channels * target_sample_rate as usize
+        / src_region.sample_rate as usize;
+    let mut output_data = Vec::with_capacity(estimted_output_len);
+
+    // Resample each tempo section and append it to the output data
     for section in sections {
         // Calculate the relative start and the end index
         let src_start_sample = tempo_map
@@ -65,12 +71,18 @@ pub fn tempo_strech(
             .saturating_sub(region_start_sample)
             .min(src_region.frames);
 
+        // Calculate the number of samples in the section and skip if it's zero
+        let section_samples = src_end_sample - src_start_sample;
+        if section_samples == 0 {
+            continue;
+        }
+
+        // Calculate the start and end index of the section in the source buffer
         let src_start_index = src_start_sample * src_region.channels as usize;
         let src_end_index = src_end_sample * src_region.channels as usize;
 
-        // Get the slice from the data
+        // Then get the section data from the source buffer
         let section_data = &src_region.data[src_start_index..src_end_index];
-        let section_samples = src_end_sample - src_start_sample;
 
         // Calculate the source sample rate to change the tempo
         let src_sample_rate =
