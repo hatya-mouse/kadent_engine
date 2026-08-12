@@ -1,7 +1,7 @@
 mod process;
 
 use crate::{
-    MAX_EVENTS,
+    MAX_CHANNELS, MAX_EVENTS,
     data_types::{PlaybackContext, Ticks},
     graph::{Graph, error::GraphError},
     mixer::TempoMap,
@@ -74,7 +74,7 @@ impl Track for NoteTrack {
         self.voice_events.clear();
         // Initialize the local buffer
         self.event_buffer = Vec::with_capacity(playback_ctx.buffer_size * MAX_EVENTS);
-        self.local_buffer = vec![0.0; playback_ctx.buffer_size * playback_ctx.channels];
+        self.local_buffer = vec![0.0; playback_ctx.buffer_size * MAX_CHANNELS];
         // Prepare the graph
         self.graph.prepare(tempo_map, playback_ctx)
     }

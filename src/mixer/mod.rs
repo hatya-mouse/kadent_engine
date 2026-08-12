@@ -8,7 +8,7 @@ pub use tempo_event::TempoEvent;
 pub use tempo_map::TempoMap;
 pub use track_id::TrackID;
 
-use crate::data_types::PlaybackContext;
+use crate::{MAX_CHANNELS, data_types::PlaybackContext};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 
 pub struct Mixer {
@@ -43,7 +43,7 @@ impl Mixer {
     /// Processes the tracks in the mixer at the specified playhead.
     pub fn process(&mut self, is_playing: bool, playhead: usize, output: &mut [f32]) {
         // Fill the output buffer with zeros before processing
-        output.iter_mut().for_each(|s| *s = 0.0);
+        output.fill(0.0);
 
         // Process samples and write them to local buffers
         self.project
@@ -59,10 +59,21 @@ impl Mixer {
                 );
             });
 
+        let channels = self.playback_ctx.channels;
+        let output_samples = output.len() / channels;
+
         // Add the output of each tracks to the main output buffer
         for track in self.project.tracks.values() {
-            for (out_sample, track_sample) in output.iter_mut().zip(track.get_local_buffer()) {
-                *out_sample += track_sample;
+            // Local buffer is an interleaved buffer with MAX_CHANNELS channels,
+            // so we need to get only the required channels for the output buffer
+            let local_buf = track.get_local_buffer();
+            for sample in 0..output_samples {
+                let src_sample_offset = sample * MAX_CHANNELS;
+                let dst_sample_offset = sample * channels;
+
+                for channel in 0..channels {
+                    output[dst_sample_offset + channel] += local_buf[src_sample_offset + channel];
+                }
             }
         }
 
