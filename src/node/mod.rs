@@ -1,7 +1,7 @@
 pub mod builtin;
 
 use crate::{
-    data_types::{AudioContext, PlaybackContext, TypeInfo},
+    data_types::{PlaybackContext, TypeInfo},
     graph::error::NodeError,
 };
 use std::any::Any;
@@ -28,8 +28,8 @@ pub trait Node: Send + Any {
     /// Returns the value type information of the specified output.
     fn get_output_type(&self, index: usize) -> Option<&TypeInfo>;
 
-    /// Updates the node with the given audio context.
-    fn update(&mut self, audio_ctx: &AudioContext);
+    /// Updates the type info of the node with the given playback context.
+    fn update_type_info(&mut self);
 
     /// Prepares the node for processing.
     fn prepare(&mut self, playback_ctx: &PlaybackContext) -> Result<(), Box<dyn NodeError>>;

@@ -21,6 +21,5 @@ impl AudioContext {
 pub struct PlaybackContext {
     pub channels: usize,
     pub sample_rate: u64,
-    pub max_voices: usize,
     pub buffer_size: usize,
 }

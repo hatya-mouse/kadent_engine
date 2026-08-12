@@ -4,7 +4,7 @@ pub mod node_id;
 mod topological_sort;
 
 use crate::{
-    data_types::{AudioContext, PlaybackContext},
+    data_types::PlaybackContext,
     graph::{automation::KeyframeManager, error::GraphError, node_id::NodeID},
     mixer::TempoMap,
     node::Node,
@@ -40,10 +40,6 @@ pub struct Graph {
     node_outputs: HashMap<NodeID, Vec<*mut u8>>,
     zero_buffer: Vec<u8>,
 
-    // --- CONFIGURATIONS ---
-    /// The current audio context.
-    audio_ctx: AudioContext,
-
     // --- KEYFRAMES ---
     /// The keyframe manager that calculates and holds the keyframe values for each node and input index.
     pub keyframe_manager: KeyframeManager,
@@ -56,15 +52,8 @@ impl Graph {
     // --- INITIALIZATION ---
 
     /// Creates a new Graph instance with the given input and output node..
-    pub fn new(
-        input_node: Box<dyn Node>,
-        output_node: Box<dyn Node>,
-        audio_ctx: AudioContext,
-    ) -> Self {
-        let mut graph = Graph {
-            audio_ctx,
-            ..Default::default()
-        };
+    pub fn new(input_node: Box<dyn Node>, output_node: Box<dyn Node>) -> Self {
+        let mut graph = Graph::default();
         // Register the input and output nodes
         let input_id = graph.add_node(input_node);
         let output_id = graph.add_node(output_node);
@@ -128,7 +117,7 @@ impl Graph {
     pub fn add_node(&mut self, mut node: Box<dyn Node>) -> NodeID {
         let id = self.generate_node_id();
         // Update the node
-        node.update(&self.audio_ctx);
+        node.update_type_info();
         // Insert the node to the map
         self.nodes.insert(id, node);
         id
@@ -137,7 +126,7 @@ impl Graph {
     /// Adds a new node to the graph with the given ID.
     pub fn add_node_with_id(&mut self, id: NodeID, mut node: Box<dyn Node>) {
         // Update the node
-        node.update(&self.audio_ctx);
+        node.update_type_info();
         // Insert the node to the map
         self.nodes.insert(id, node);
     }
@@ -218,15 +207,13 @@ impl Graph {
             .collect()
     }
 
-    // --- AUDIO CONTEXT UPDATING ---
+    // --- PLAYBACK CONTEXT UPDATING ---
 
-    /// Sets the audio context to the new one.
-    pub fn set_audio_ctx(&mut self, audio_ctx: &AudioContext) {
-        self.audio_ctx = audio_ctx.clone();
-
+    /// Sets the playback context to the new one.
+    pub fn update_type_info(&mut self) {
         // Call update functions for every nodes
         for node in self.nodes.values_mut() {
-            node.update(audio_ctx);
+            node.update_type_info();
         }
     }
 
@@ -246,7 +233,7 @@ impl Graph {
             let output_type = node
                 .get_output_type(output_index)
                 .ok_or(GraphError::OutputTypeUnavailable(*node_id, output_index))?;
-            let buffer = vec![0u8; output_type.size * playback_ctx.buffer_size];
+            let buffer = vec![0u8; output_type.actual_size(playback_ctx.buffer_size)];
 
             // Insert the output buffer to the output_buffers
             output_buffers.insert((*node_id, output_index), buffer);
@@ -320,7 +307,7 @@ impl Graph {
                 let type_info = node
                     .get_input_type(i)
                     .ok_or(GraphError::InputTypeUnavailable(*node_id, i))?;
-                max_size = max_size.max(type_info.size);
+                max_size = max_size.max(type_info.actual_size(playback_ctx.buffer_size));
             }
         }
         self.zero_buffer = vec![0u8; max_size * playback_ctx.buffer_size];
@@ -372,7 +359,7 @@ impl Graph {
                             .ok_or(GraphError::InputTypeUnavailable(node_id, input_index))?;
 
                         // Allocate the keyframe buffer for the input based on the input type and the buffer size
-                        let buf_size = input_type.size * playback_ctx.buffer_size;
+                        let buf_size = input_type.actual_size(playback_ctx.buffer_size);
                         let keyframe_buf = vec![0u8; buf_size];
 
                         *input_ptr = keyframe_buf.as_ptr();

@@ -4,22 +4,16 @@ mod note_region;
 mod processed_note;
 mod track_impl;
 mod voice_event;
-mod voice_source;
 
 pub use note::{Note, NoteID};
 pub use note_modifier::{NoteModifier, NoteModifierID};
 pub use note_region::NoteRegion;
 
 use crate::{
-    data_types::{AudioContext, MidiEvent, Voice},
+    data_types::{EventSlot, MidiEvent},
     graph::Graph,
     node::builtin::{AudioOutputNode, NoteInputNode},
-    track::{
-        RegionID,
-        note_track::{
-            processed_note::ProcessedNote, voice_event::VoiceEventID, voice_source::VoiceSource,
-        },
-    },
+    track::{RegionID, note_track::processed_note::ProcessedNote},
 };
 use std::{
     cmp::Reverse,
@@ -44,52 +38,33 @@ pub struct NoteTrack {
 
     // --- VOICE EVENTS ---
     /// Voice Events such as NoteOn and NoteOff.
-    /// Used for generating actual `Voice`.
     voice_events: BinaryHeap<Reverse<VoiceEvent>>,
-
-    // --- EVENT -> VOICE PROCESSING ---
-    /// *Active* voices in the currently processing frame. The length must be as the same as `max_voices`.
-    active_voices: Vec<Voice>,
-    /// The sources of each voices with each corresponding to voices in `active_voices`. (MIDI or SequencedNote)
-    voice_sources: Vec<Option<VoiceSource>>,
-    /// Indices where the corresponding slots are vacant and available for new voice.
-    /// Indices are of `active_voices`.
-    ///
-    /// It is recommended to call `pop_front` to get a free voice, and call `push_back` to register a free slot.
-    free_voices: VecDeque<usize>,
-
-    // --- ACTIVE VOICES MANAGEMENT ---
-    /// Map from `VoiceEventID` to `active_voices`, used to get the corresponding voice when processing NoteOff.
-    event_id_to_index: HashMap<VoiceEventID, usize>,
+    /// Voice events that could not be processed in the previous sample and are pending to be processed in the next sample.
+    delayed_voice_events: VecDeque<VoiceEvent>,
 
     // --- MIDI VOICE INSERTION ---
     /// Pending MIDI events to be processied in the next buffer.
     pending_midi_events: Vec<MidiEvent>,
 
-    // --- LOCAL OUTPUT BUFFER ---
+    // --- LOCAL BUFFER ---
+    /// Local event buffer to store the event slots to be passed to the graph.
+    event_buffer: Vec<EventSlot>,
+    /// Local buffer to store the calculated audio sample data for this track.
     local_buffer: Vec<f32>,
-
-    // --- AUDIO CONTEXT ---
-    audio_ctx: AudioContext,
 
     // --- MISC ---
     next_region_id: u64,
 }
 
 impl NoteTrack {
-    pub fn new(audio_ctx: AudioContext) -> Self {
+    pub fn new() -> Self {
         // Create a graph with the input and output nodes
         let input_node = NoteInputNode::default();
         let output_node = AudioOutputNode::default();
-        let graph = Graph::new(
-            Box::new(input_node),
-            Box::new(output_node),
-            audio_ctx.clone(),
-        );
+        let graph = Graph::new(Box::new(input_node), Box::new(output_node));
 
         Self {
             graph,
-            audio_ctx,
             ..Default::default()
         }
     }
@@ -132,36 +107,6 @@ impl NoteTrack {
 
     pub fn set_regions(&mut self, regions: HashMap<RegionID, NoteRegion>) {
         self.regions = regions;
-    }
-
-    // --- VOICE STEALING ---
-
-    /// Returns the vacant voice index, or returns the index of the oldest voice.
-    /// This function registers the given voice index to `old_voices`.
-    fn find_or_steal_voice(&mut self) -> usize {
-        // If there is a free voice, return it
-        if let Some(index) = self.free_voices.pop_front() {
-            return index;
-        }
-
-        // If not, find the oldest active voice and return its index
-        let stolen_index = self
-            .active_voices
-            .iter()
-            .enumerate()
-            .filter(|(_, v)| v.is_active)
-            .max_by(|(_, a), (_, b)| a.age.partial_cmp(&b.age).unwrap())
-            .map(|(i, _)| i)
-            .unwrap_or(0);
-        // Remove the old voice from the event_id_to_index map
-        self.event_id_to_index.retain(|_, &mut v| v != stolen_index);
-
-        stolen_index
-    }
-
-    /// Marks the given voice index free.
-    fn free_voice(&mut self, free_index: &usize) {
-        self.free_voices.push_back(*free_index);
     }
 
     // --- REALTIME MIDI ---

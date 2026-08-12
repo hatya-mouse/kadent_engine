@@ -4,3 +4,6 @@ pub mod mixer;
 pub mod node;
 pub mod thread;
 pub mod track;
+
+pub const MAX_CHANNELS: usize = 64;
+pub const MAX_EVENTS: usize = 4;

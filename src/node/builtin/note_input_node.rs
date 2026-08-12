@@ -1,5 +1,5 @@
 use crate::{
-    data_types::{AudioContext, PlaybackContext, TypeInfo, Voice},
+    data_types::{EventSlot, PlaybackContext, TypeInfo},
     graph::error::NodeError,
     node::Node,
 };
@@ -9,6 +9,7 @@ use std::ptr::copy_nonoverlapping;
 #[derive(Default, Clone)]
 pub struct NoteInputNode {
     data_type: TypeInfo,
+    actual_size: usize,
 }
 
 impl Node for NoteInputNode {
@@ -44,22 +45,27 @@ impl Node for NoteInputNode {
         }
     }
 
-    fn update(&mut self, _audio_ctx: &AudioContext) {}
+    fn update_type_info(&mut self) {
+        self.data_type = TypeInfo::new(size_of::<EventSlot>(), 4);
+    }
 
     fn prepare(&mut self, playback_ctx: &PlaybackContext) -> Result<(), Box<dyn NodeError>> {
-        self.data_type = TypeInfo::new(
-            size_of::<Voice>() * playback_ctx.max_voices * playback_ctx.buffer_size,
-            4,
-        );
+        self.data_type = TypeInfo::new(size_of::<EventSlot>(), 4);
+        self.actual_size = self.data_type.actual_size(playback_ctx.buffer_size);
         Ok(())
     }
 
-    fn process(&mut self, inputs: &[*const u8], outputs: &[*mut u8], _audio_ctx: &PlaybackContext) {
+    fn process(
+        &mut self,
+        inputs: &[*const u8],
+        outputs: &[*mut u8],
+        _playback_ctx: &PlaybackContext,
+    ) {
         for (input, output) in inputs.iter().zip(outputs.iter()) {
             unsafe {
                 // Copy the entire input to the output
                 // The buffer is of u8 type, so the size of the data type must be the same as the size of the buffer
-                copy_nonoverlapping(*input, *output, self.data_type.size);
+                copy_nonoverlapping(*input, *output, self.actual_size);
             }
         }
     }

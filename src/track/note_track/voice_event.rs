@@ -1,16 +1,9 @@
 use crate::data_types::MidiEvent;
-use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Copy, Eq, Hash, PartialEq, Debug, Serialize, Deserialize)]
-pub enum VoiceEventID {
-    RealtimeMidi { pitch: u8 },
-    SequencedNote { id: usize },
-}
 
 #[derive(Debug, Clone)]
 pub(super) enum VoiceEventKind {
     NoteOn { pitch: f32, velocity: f32 },
-    NoteOff,
+    NoteOff { pitch: f32 },
 }
 
 #[derive(Debug, Clone)]
@@ -19,17 +12,11 @@ pub(super) struct VoiceEvent {
     pub sample_time: usize,
     /// The kind of the voice.
     pub kind: VoiceEventKind,
-    /// The identifier of the voice. This should be used to match NoteOn with NoteOff.
-    pub id: VoiceEventID,
 }
 
 impl VoiceEvent {
-    pub fn new(sample_time: usize, kind: VoiceEventKind, id: VoiceEventID) -> Self {
-        Self {
-            sample_time,
-            kind,
-            id,
-        }
+    pub fn new(sample_time: usize, kind: VoiceEventKind) -> Self {
+        Self { sample_time, kind }
     }
 
     pub fn from_midi_event(sample_time: usize, midi_event: MidiEvent) -> Self {
@@ -40,12 +27,12 @@ impl VoiceEvent {
                     pitch: pitch as f32,
                     velocity: velocity as f32 / 256f32,
                 },
-                id: VoiceEventID::RealtimeMidi { pitch },
             },
             MidiEvent::NoteOff { pitch } => Self {
                 sample_time,
-                kind: VoiceEventKind::NoteOff,
-                id: VoiceEventID::RealtimeMidi { pitch },
+                kind: VoiceEventKind::NoteOff {
+                    pitch: pitch as f32,
+                },
             },
         }
     }

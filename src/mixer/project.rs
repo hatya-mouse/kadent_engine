@@ -87,7 +87,7 @@ impl Project {
     /// Adds a new track to the mixer, setting the audio context to the one in the mixer.
     pub fn add_track(&mut self, mut track: Box<dyn Track>) -> TrackID {
         let id = self.generate_track_id();
-        track.set_audio_ctx(&self.audio_ctx);
+        track.update_type_info();
         self.tracks.insert(id, track);
         id
     }

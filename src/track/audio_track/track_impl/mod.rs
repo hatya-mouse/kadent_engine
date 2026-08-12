@@ -1,7 +1,7 @@
 mod process;
 
 use crate::{
-    data_types::{AudioContext, PlaybackContext, Ticks},
+    data_types::{PlaybackContext, Ticks},
     graph::{Graph, error::GraphError},
     mixer::TempoMap,
     track::{
@@ -31,13 +31,6 @@ impl Track for AudioTrack {
 
     fn set_graph(&mut self, graph: Graph) {
         self.graph = graph;
-    }
-
-    // --- AUDIO CONTEXT UPDARING ---
-
-    fn set_audio_ctx(&mut self, audio_ctx: &AudioContext) {
-        self.audio_ctx = audio_ctx.clone();
-        self.graph.set_audio_ctx(audio_ctx);
     }
 
     // --- REGION MODIFICATION ---

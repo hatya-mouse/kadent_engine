@@ -1,7 +1,8 @@
 mod process;
 
 use crate::{
-    data_types::{AudioContext, PlaybackContext, Ticks, Voice},
+    MAX_EVENTS,
+    data_types::{PlaybackContext, Ticks},
     graph::{Graph, error::GraphError},
     mixer::TempoMap,
     track::{
@@ -52,21 +53,11 @@ impl Track for NoteTrack {
         self.regions.remove(region_id);
     }
 
-    // --- AUDIO CONTEXT UPDARING ---
-
-    fn set_audio_ctx(&mut self, audio_ctx: &AudioContext) {
-        self.audio_ctx = audio_ctx.clone();
-        self.graph.set_audio_ctx(audio_ctx);
-    }
-
     // --- SEEKING ---
 
-    fn seek(&mut self, _playhead: usize, playback_ctx: &PlaybackContext) {
+    fn seek(&mut self, _playhead: usize, _playback_ctx: &PlaybackContext) {
         // Clear the voices and events
         self.voice_events.clear();
-        self.active_voices = vec![Voice::default(); playback_ctx.max_voices];
-        self.voice_sources = vec![None; playback_ctx.max_voices];
-        self.free_voices = (0..playback_ctx.max_voices).collect();
     }
 
     // --- TRACK PROCESSING ---
@@ -81,13 +72,9 @@ impl Track for NoteTrack {
 
         // Clear the voices and events
         self.voice_events.clear();
-        self.active_voices = vec![Voice::default(); playback_ctx.max_voices];
-        self.voice_sources = vec![None; playback_ctx.max_voices];
-        self.free_voices = (0..playback_ctx.max_voices).collect();
-
         // Initialize the local buffer
+        self.event_buffer = Vec::with_capacity(playback_ctx.buffer_size * MAX_EVENTS);
         self.local_buffer = vec![0.0; playback_ctx.buffer_size * playback_ctx.channels];
-
         // Prepare the graph
         self.graph.prepare(tempo_map, playback_ctx)
     }
@@ -99,8 +86,7 @@ impl Track for NoteTrack {
         tempo_map: &TempoMap,
         playback_ctx: &PlaybackContext,
     ) {
-        let mut voice_buffer =
-            Vec::with_capacity(playback_ctx.buffer_size * playback_ctx.max_voices);
+        self.event_buffer.clear();
         let buffer_end = playhead + playback_ctx.buffer_size;
 
         // Convert the pending MIDI notes to voice events and push them to the voice_events vector
@@ -117,15 +103,12 @@ impl Track for NoteTrack {
         }
 
         for sample in playhead..buffer_end {
-            // Convert voice events to voices
-            // Update active voics for this sample
-            self.consume_events_at_sample(is_playing, sample, playback_ctx);
-            // Extend the voice buffer with the current active voices
-            voice_buffer.extend(self.active_voices.clone());
+            // Convert voice events to events and store it to the event buffer
+            self.consume_events_at_sample(sample);
         }
 
         // Get a pointer to the voice buffer
-        let input_ptr = voice_buffer.as_ptr() as *const u8;
+        let input_ptr = self.event_buffer.as_ptr() as *const u8;
         // Process the graph
         self.graph.process(
             &[input_ptr],
