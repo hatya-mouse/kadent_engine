@@ -149,18 +149,10 @@ impl NoteTrack {
     fn process_voice_event(&mut self, voice_event: VoiceEvent, event_slot: &mut EventSlot) {
         match &voice_event.kind {
             VoiceEventKind::NoteOn { pitch, velocity } => {
-                println!(
-                    "Processing NoteOn event: pitch={}, velocity={}",
-                    pitch, velocity
-                );
                 if event_slot.is_full() {
                     self.delayed_voice_events.push_back(voice_event);
                 } else {
                     event_slot.add_event(Event::new(1, *pitch, *velocity));
-                    println!(
-                        "Added NoteOn event to event_slot: pitch={}, velocity={}",
-                        pitch, velocity
-                    );
                 }
             }
             VoiceEventKind::NoteOff { pitch } => {
