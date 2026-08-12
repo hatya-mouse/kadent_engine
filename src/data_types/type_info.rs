@@ -12,6 +12,7 @@ impl TypeInfo {
         Self { sample_size, align }
     }
 
+    /// Returns the actual size of the buffer, given the buffer size.
     pub fn actual_size(&self, buffer_size: usize) -> usize {
         self.sample_size * buffer_size
     }
