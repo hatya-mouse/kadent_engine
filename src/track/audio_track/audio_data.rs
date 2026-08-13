@@ -43,13 +43,11 @@ impl AudioSource {
 }
 
 fn load_from_path(path: &Path, range: Range<usize>) -> Option<Vec<f32>> {
-    println!("Loading audio data from path: {:?}", path);
     let mut reader = hound::WavReader::open(path).ok()?;
-    println!("Initialized reader with spec: {:?}", reader.spec());
     // Seek to the first sample in the range
     reader.seek(range.start as u32).ok()?;
-    println!("Seeking to sample index: {}", range.start);
     // Then read the samples in the range
+    println!("range: {:?}", range);
     Some(
         reader
             .into_samples::<f32>()
