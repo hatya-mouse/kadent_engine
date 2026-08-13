@@ -76,21 +76,15 @@ impl Track for AudioTrack {
         audio_ctx: &AudioContext,
         playback_ctx: &PlaybackContext,
     ) -> Result<(), GraphError> {
-        println!("Prepare 1");
-
         // Prepare the regions
         for region in self.regions.values_mut() {
             region.prepare(tempo_map, audio_ctx);
         }
 
-        println!("Prepare 2");
-
         // Stop the old render worker by setting the is_running flag to false
         if let Some(is_worker_running) = &self.is_worker_running {
             is_worker_running.store(false, Ordering::SeqCst);
         }
-
-        println!("Prepare 3");
 
         // Create a new ring buffer and is_running flag for the new render worker
         let ringbuf_size = playback_ctx.buffer_size * MAX_CHANNELS * 2;
@@ -105,8 +99,6 @@ impl Track for AudioTrack {
         let sync_state = TrackSyncState::new();
         self.sync_state = Some(sync_state.clone());
 
-        println!("Prepare 4");
-
         // Spawn a new render worker thread
         spawn_render_worker(
             prod,
@@ -118,11 +110,8 @@ impl Track for AudioTrack {
             0,
         );
 
-        println!("Prepare 5");
-
         // Initialize the local buffers
         self.init_local_buffers(playback_ctx);
-        println!("Prepare 6");
         // Then prepare the graph
         self.graph.prepare(tempo_map, playback_ctx)
     }
