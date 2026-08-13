@@ -113,6 +113,7 @@ impl AudioRegion {
             // If the data was None, do not write anything to the buffer and return
             return;
         };
+        println!("data: {}", data.len());
 
         // Resample the audio data
         let resampled = tempo_strech(

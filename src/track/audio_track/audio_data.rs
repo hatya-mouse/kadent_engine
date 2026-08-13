@@ -49,6 +49,7 @@ fn load_from_path(path: &Path, range: Range<usize>) -> Option<Vec<f32>> {
     // Seek to the first sample in the range
     reader.seek(range.start as u32).ok()?;
     // Then read the samples in the range
+    println!("range: {:?}, available samples: {}", range, reader.len());
     match spec.sample_format {
         SampleFormat::Float => Some(
             reader
