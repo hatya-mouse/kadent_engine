@@ -102,17 +102,18 @@ impl AudioRegion {
         let global_end = buffer_end.min(self.region_end_samples);
 
         // Convert the playhead position to a sample index in the audio data
-        let local_start = self.calculate_local_samples(global_start, tempo_map);
-        let local_end = self.calculate_local_samples(global_end, tempo_map);
-        if local_start >= local_end {
+        let data_start = self.calculate_local_samples(global_start, tempo_map) * self.info.channels;
+        let data_end = self.calculate_local_samples(global_end, tempo_map) * self.info.channels;
+        if data_start >= data_end {
             return;
         }
 
         // Get the slice of the audio data from the audio source
-        let Some(data) = self.data_source.get_data_in(local_start..local_end) else {
+        let Some(data) = self.data_source.get_data_in(data_start..data_end) else {
             // If the data was None, do not write anything to the buffer and return
             return;
         };
+        println!("data: {}", data.len());
 
         // Resample the audio data
         let resampled = tempo_strech(
