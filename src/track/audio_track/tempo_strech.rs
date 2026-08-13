@@ -23,7 +23,7 @@ pub(super) fn tempo_strech(
     tempo_map: &TempoMap,
 ) -> Vec<f32> {
     // If the destination sample rate is zero, return immediately with an empty vector
-    if dst_sample_rate == 0 {
+    if src.is_empty() || dst_sample_rate == 0 {
         return Vec::new();
     }
 
