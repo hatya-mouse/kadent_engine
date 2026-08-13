@@ -188,8 +188,7 @@ pub(super) fn audio_thread(
         }
     }
 
-    // Drop the stream explicitly so playback stops as soon as the thread shuts down
-    drop(stream);
+    // Stream will be dropped here and the output callback should stop
 }
 
 fn recreate_output_callback(
