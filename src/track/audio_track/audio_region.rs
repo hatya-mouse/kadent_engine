@@ -86,13 +86,15 @@ impl AudioRegion {
         tempo_map: &TempoMap,
         playback_ctx: &PlaybackContext,
     ) {
-        println!("render_buffer 1");
         // Skip processing if the buffer falls entirely outside the region's range
         let buffer_end = playhead + playback_ctx.buffer_size;
         if buffer_end <= self.region_start_samples || playhead >= self.region_end_samples {
+            println!(
+                "Skipping region render: playhead {} buffer_end {} region_start {} region_end {}",
+                playhead, buffer_end, self.region_start_samples, self.region_end_samples
+            );
             return;
         }
-        println!("render_buffer 2");
 
         // Calculate where to start and end reading from the audio data
         // This is to handle edge cases
@@ -109,15 +111,12 @@ impl AudioRegion {
         if local_start >= local_end {
             return;
         }
-        println!("render_buffer 3");
 
         // Get the slice of the audio data from the audio source
         let Some(data) = self.data_source.get_data_in(local_start..local_end) else {
             // If the data was None, do not write anything to the buffer and return
             return;
         };
-        println!("render_buffer 4");
-        println!("Data: {:?}", data);
 
         // Resample the audio data
         let resampled = tempo_strech(
