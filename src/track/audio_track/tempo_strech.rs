@@ -65,9 +65,15 @@ pub(super) fn tempo_strech(
     // Resample each tempo section and append it to the output data
     let mut output_data = Vec::new();
     for section in sections {
+        let resample_ratio =
+            src_info.sample_rate as f64 * src_info.bpm / (section.2 * dst_sample_rate as f64);
+        let inv_resample_ratio = 1.0 / resample_ratio;
+
         // Calculate the relative start and the end index by subtracting by the start index of the part to be resampled
-        let src_start_sample = section.0.saturating_sub(start_samples).min(src_info.frames);
-        let src_end_sample = section.1.saturating_sub(start_samples).min(src_info.frames);
+        let src_start_sample = (section.0.saturating_sub(start_samples) as f64 * inv_resample_ratio)
+            .min(src_info.frames as f64) as usize;
+        let src_end_sample = (section.1.saturating_sub(start_samples) as f64 * inv_resample_ratio)
+            .min(src_info.frames as f64) as usize;
 
         // Calculate the number of samples in the section and skip if it's zero
         let section_samples = src_end_sample - src_start_sample;
@@ -87,8 +93,6 @@ pub(super) fn tempo_strech(
         );
 
         // Calculate the ratio of the sample rate and the bpm
-        let resample_ratio =
-            src_info.sample_rate as f64 * src_info.bpm / (section.2 * dst_sample_rate as f64);
         let resampled_data = resample_channels(section_data, src_info.channels, resample_ratio);
 
         // Append the resampled audio to the output data
