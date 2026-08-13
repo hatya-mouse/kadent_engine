@@ -1,3 +1,4 @@
+use hound::SampleFormat;
 use serde::{Deserialize, Serialize};
 use std::{
     ops::Range,
@@ -44,15 +45,29 @@ impl AudioSource {
 
 fn load_from_path(path: &Path, range: Range<usize>) -> Option<Vec<f32>> {
     let mut reader = hound::WavReader::open(path).ok()?;
+    let spec = reader.spec();
     // Seek to the first sample in the range
     reader.seek(range.start as u32).ok()?;
     // Then read the samples in the range
-    println!("range: {:?}, available samples: {}", range, reader.len());
-    Some(
-        reader
-            .into_samples::<f32>()
-            .take(range.count())
-            .filter_map(Result::ok)
-            .collect(),
-    )
+    match spec.sample_format {
+        SampleFormat::Float => Some(
+            reader
+                .into_samples::<f32>()
+                .take(range.count())
+                .filter_map(Result::ok)
+                .collect(),
+        ),
+        SampleFormat::Int => {
+            let max_value = 2_i32.pow(spec.bits_per_sample as u32 - 1) as f32;
+            let inv_max_value = 1.0 / max_value;
+            Some(
+                reader
+                    .into_samples::<i32>()
+                    .take(range.count())
+                    .filter_map(Result::ok)
+                    .map(|s| s as f32 * inv_max_value)
+                    .collect(),
+            )
+        }
+    }
 }
