@@ -3,18 +3,14 @@ use rayon::{
     slice::ParallelSliceMut,
 };
 
-pub fn resample_channels(
-    source: &[f32],
-    channels: usize,
-    source_samples: usize,
-    ratio: f64,
-) -> Vec<f32> {
-    if source_samples == 0 || ratio == 0.0 {
+pub fn resample_channels(source: &[f32], channels: usize, ratio: f64) -> Vec<f32> {
+    if source.len() == 0 || channels == 0 || ratio == 0.0 {
         return Vec::new();
     }
+    let src_samples = source.len() / channels;
 
     // Calculate the length of the output array (interleaved) and fill it with zeros
-    let target_samples = (source_samples as f64 * ratio).ceil() as usize;
+    let target_samples = (src_samples as f64 * ratio).ceil() as usize;
     let full_len = target_samples * channels;
     let mut output = vec![0f32; full_len];
 
@@ -27,7 +23,7 @@ pub fn resample_channels(
             let src_pos = sample as f64 * ratio;
             let index = src_pos as usize;
 
-            if index + 1 < source_samples {
+            if index + 1 < src_samples {
                 let gradient = (src_pos - index as f64) as f32;
 
                 // Get numbers to interpolate between

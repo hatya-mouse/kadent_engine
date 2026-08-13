@@ -7,7 +7,7 @@ use crate::{
 /// Strech the audio data using the given tempo map, not preserving the pitch.
 /// The returned audio data will start at the beginning of the region.
 ///
-/// # Arguments
+/// # Parameters
 /// - `src`: The source audio data to be streched.
 /// - `src_info`: The information associated with the source audio data.
 /// - `start_ticks`: The start tick of the region to be streched.
@@ -16,7 +16,7 @@ use crate::{
 /// - `tempo_map`: The tempo map to be used for streching the audio data.
 pub(super) fn tempo_strech(
     src: &[f32],
-    src_info: AudioDataInfo,
+    src_info: &AudioDataInfo,
     start_ticks: Ticks,
     end_ticks: Ticks,
     dst_sample_rate: u64,
@@ -99,12 +99,7 @@ pub(super) fn tempo_strech(
         // Calculate the source sample rate to change the tempo
         let resample_ratio =
             src_info.sample_rate as f64 * src_info.bpm / section.2 * dst_sample_rate as f64;
-        let resampled_data = resample_channels(
-            section_data,
-            src_info.channels,
-            section_samples,
-            resample_ratio,
-        );
+        let resampled_data = resample_channels(section_data, src_info.channels, resample_ratio);
 
         // Append the resampled audio to the output data
         output_data.extend(resampled_data);

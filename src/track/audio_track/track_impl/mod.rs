@@ -2,7 +2,7 @@ mod process;
 
 use crate::{
     MAX_CHANNELS,
-    data_types::{PlaybackContext, Ticks},
+    data_types::{AudioContext, PlaybackContext, Ticks},
     graph::{Graph, error::GraphError},
     mixer::TempoMap,
     track::{RegionID, Track, audio_track::AudioTrack},
@@ -58,8 +58,14 @@ impl Track for AudioTrack {
     fn prepare(
         &mut self,
         tempo_map: &TempoMap,
+        audio_ctx: &AudioContext,
         playback_ctx: &PlaybackContext,
     ) -> Result<(), GraphError> {
+        // Prepare the regions
+        for region in self.regions.values_mut() {
+            region.prepare(audio_ctx);
+        }
+
         // Initialize the local buffers
         self.init_local_buffers(playback_ctx);
         // Then prepare the graph
