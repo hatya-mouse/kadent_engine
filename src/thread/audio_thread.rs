@@ -79,8 +79,15 @@ pub(super) fn audio_thread(
     }
 
     // Create a message loop
-    loop {
-        while let Ok(command) = command_rx.try_recv() {
+    'message_loop: loop {
+        loop {
+            // If the receiver thread is disconnected, break the loop and exit the thread
+            let command = match command_rx.try_recv() {
+                Ok(command) => command,
+                Err(mpsc::TryRecvError::Empty) => break,
+                Err(mpsc::TryRecvError::Disconnected) => break 'message_loop,
+            };
+
             match command {
                 AudioCommand::Play => {
                     is_playing.store(true, Ordering::Release);
@@ -180,6 +187,9 @@ pub(super) fn audio_thread(
             midi_sub_prod.try_push(midi_event).ok();
         }
     }
+
+    // Drop the stream explicitly so playback stops as soon as the thread shuts down
+    drop(stream);
 }
 
 fn recreate_output_callback(
