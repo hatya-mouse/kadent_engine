@@ -4,8 +4,11 @@ use std::cmp::Ordering;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct TempoEvent {
+    /// The ticks at which the tempo change occurs.
     pub(super) ticks: Ticks,
+    /// The bpm which the event represents.
     pub(super) bpm: f64,
+    /// Cached sample offset in the global sample rate.
     pub(super) sample_offset: usize,
     /// Cached factor for converting ticks to samples, calculated from the audio context.
     samples_per_tick_fp: u64,

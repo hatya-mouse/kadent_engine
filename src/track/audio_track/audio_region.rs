@@ -118,8 +118,8 @@ impl AudioRegion {
         let resampled = tempo_strech(
             &data,
             &self.info,
-            self.start,
-            self.end(),
+            global_start,
+            global_end,
             playback_ctx.sample_rate,
             tempo_map,
         );
