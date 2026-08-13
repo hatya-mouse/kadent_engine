@@ -9,15 +9,15 @@ use crate::{
 /// # Parameters
 /// - `src`: The source audio data to be streched.
 /// - `src_info`: The information associated with the source audio data.
-/// - `start_samples`: The start sample index of the region to be streched.
-/// - `end_samples`: The end sample index of the region to be streched.
+/// - `start_sample`: The start sample index of the region to be streched.
+/// - `end_sample`: The end sample index of the region to be streched.
 /// - `dst_sample_rate`: The sample rate of the destination audio data.
 /// - `tempo_map`: The tempo map to be used for streching the audio data.
 pub(super) fn tempo_strech(
     src: &[f32],
     src_info: &AudioDataInfo,
-    start_samples: usize,
-    end_samples: usize,
+    start_sample: usize,
+    end_sample: usize,
     dst_sample_rate: u64,
     tempo_map: &TempoMap,
 ) -> Vec<f32> {
@@ -26,78 +26,38 @@ pub(super) fn tempo_strech(
         return Vec::new();
     }
 
-    // Create a section list by splitting the region into sections based on tempo change events
-    // Get the first event on or before the region start beat
-    let start_index = tempo_map
-        .events
-        .partition_point(|e| e.sample_offset() <= start_samples)
-        .saturating_sub(1);
-    // Loop over the events until it surpasses the region end beat
-    // and create sections that has to be resampled separately
-    // (0: Start sample index, 1: End sample index, 2: BPM of the section)
-    let mut sections: Vec<(usize, usize, f64)> = Vec::with_capacity(16);
-    let mut i = start_index;
-
-    // Loop over the tempo change events and create sections based on the tempo changes
-    while let Some(event) = tempo_map.events.get(i) {
-        // Break if the event beat surpasses the region end beat
-        if event.sample_offset() >= end_samples {
-            break;
-        }
-
-        // Get the start and the end beat of the section
-        let section_start = if i == start_index {
-            start_samples
-        } else {
-            event.sample_offset()
-        };
-        let section_end = tempo_map
-            .events
-            .get(i + 1)
-            .map(|next| next.sample_offset().min(end_samples))
-            .unwrap_or(end_samples);
-
-        // Push the section
-        sections.push((section_start, section_end, event.bpm()));
-        i += 1;
-    }
+    // Get the tempo sections in the given range from the tempo map
+    let sections = tempo_map.get_sections_in_range(start_sample, end_sample, src_info);
 
     // Resample each tempo section and append it to the output data
     let mut output_data = Vec::new();
-    let mut last_section_end_sample = 0;
 
     for section in sections {
-        // Calculate the ratio of the sample rate for the section
-        let resample_ratio =
-            src_info.sample_rate as f64 * src_info.bpm / (section.2 * dst_sample_rate as f64);
-        let inv_resample_ratio = 1.0 / resample_ratio;
-
         // Number of samples in the section
-        let section_samples = section.1.saturating_sub(section.0);
+        let section_samples = section
+            .global_end_sample
+            .saturating_sub(section.global_start_sample);
         if section_samples == 0 {
             continue;
         }
 
-        // Calculate the number of samples in the section and get the start and end sample index of the section in the source buffer
-        let section_data_samples = (section_samples as f64 * inv_resample_ratio) as usize;
-        let src_start_index = last_section_end_sample * src_info.channels;
-        last_section_end_sample += section_data_samples;
-        let src_end_index = last_section_end_sample * src_info.channels;
+        // Get the start and end indices of the section in the source buffer
+        let src_start_index = section.local_start_sample * src_info.channels;
+        let src_end_index = section.local_end_sample * src_info.channels;
 
         // Then get the section data from the source buffer
         let section_data = &src.get(src_start_index..src_end_index).unwrap_or(&[]);
-        println!(
-            "src_start_index: {}, src_end_index: {}, src.len(): {}",
-            src_start_index,
-            src_end_index,
-            src.len()
-        );
 
-        // Calculate the ratio of the sample rate and the bpm
-        let resampled_data = resample_channels(section_data, src_info.channels, resample_ratio);
-
-        // Append the resampled audio to the output data
-        output_data.extend(resampled_data);
+        if section.resample_ratio == 1.0 {
+            // If the ratio is 1.0, we can skip resampling and just append the section data to the output data
+            output_data.extend_from_slice(section_data);
+        } else {
+            // Calculate the ratio of the sample rate and the bpm
+            let resampled_data =
+                resample_channels(section_data, src_info.channels, section.resample_ratio);
+            // Append the resampled audio to the output data
+            output_data.extend(resampled_data);
+        }
     }
 
     output_data

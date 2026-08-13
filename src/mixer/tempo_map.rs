@@ -1,6 +1,7 @@
 use crate::{
     data_types::{AudioContext, PlaybackContext, Ticks},
-    mixer::TempoEvent,
+    mixer::{TempoEvent, TempoSection},
+    track::audio_track::AudioDataInfo,
 };
 
 #[derive(Clone, Default)]
@@ -153,5 +154,78 @@ impl TempoMap {
         let elapsed_ticks = (elapsed_samples as f64 * self.audio_ctx.resolution as f64 * event.bpm)
             / (60f64 * sample_rate as f64);
         event.ticks + Ticks(elapsed_ticks.round() as i64)
+    }
+
+    // --- SECTION CALCULATION ---
+
+    /// Returns a vector of TempoSection that holds the tempo and the resample ratio in it.
+    ///
+    /// # Parameters
+    /// - `start_sample`: The start sample index of the range in the global sample rate.
+    /// - `end_sample`: The end sample index of the range in the global sample rate.
+    /// - `src_info`: Information of the audio data that you want to resample.
+    pub(crate) fn get_sections_in_range(
+        &self,
+        start_sample: usize,
+        end_sample: usize,
+        src_info: &AudioDataInfo,
+    ) -> Vec<TempoSection> {
+        let mut sections = Vec::new();
+        if start_sample >= end_sample || self.events.is_empty() {
+            return sections;
+        }
+
+        let sample_rate = match &self.playback_ctx {
+            Some(ctx) => ctx.sample_rate,
+            None => return sections,
+        };
+
+        // Calculate where to start iterating over the tempo events
+        let start_index = self
+            .events
+            .partition_point(|e| e.sample_offset <= start_sample)
+            .saturating_sub(1);
+        let mut current_sample = start_sample;
+        let mut current_local_sample = 0;
+
+        // Loop over the tempo change events and create sections based on the tempo changes
+        for (i, event) in self.events.iter().skip(start_index).enumerate() {
+            let next_event_sample = self
+                .events
+                .get(i + 1)
+                .map(|event| event.sample_offset())
+                .unwrap_or(usize::MAX);
+
+            // Clamp the section end to the end_sample to avoid going beyond the requested range
+            let section_end = next_event_sample.min(end_sample);
+            // Calculate the number of local samples in the section
+
+            if current_sample < section_end {
+                // Calculate the resample ratio for the current section
+                let resample_ratio =
+                    src_info.sample_rate as f64 * src_info.bpm / (sample_rate as f64 * event.bpm());
+                let local_samples = (section_end - current_sample) as f64 / resample_ratio;
+
+                // Get the current local sample index for the section
+                let local_start_sample = current_local_sample;
+                let local_end_sample = current_local_sample + local_samples as usize;
+                current_local_sample = local_end_sample;
+
+                sections.push(TempoSection::new(
+                    current_sample,
+                    section_end,
+                    local_start_sample,
+                    local_end_sample,
+                    resample_ratio,
+                ));
+                current_sample = section_end;
+            }
+
+            if current_sample >= end_sample {
+                break;
+            }
+        }
+
+        sections
     }
 }

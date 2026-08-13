@@ -3,8 +3,8 @@ use crate::{
     data_types::{AudioContext, PlaybackContext, Ticks},
     mixer::TempoMap,
     track::audio_track::{
-        AudioDataInfo, AudioSource,
-        tempo_strech::{add_samples_interleaved, tempo_strech},
+        AudioDataInfo, AudioSource, resampler::resample_channels,
+        tempo_strech::add_samples_interleaved,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -21,9 +21,9 @@ pub struct AudioRegion {
     /// Cached factor used to convert relative global ticks to local sample indices in the audio data.
     ticks_to_local_factor: f64,
     /// Cached region start global sample index in the current playback context.
-    region_start_samples: usize,
+    region_start_sample: usize,
     /// Cached region end global sample index in the current playback context.
-    region_end_samples: usize,
+    region_end_sample: usize,
 }
 
 impl AudioRegion {
@@ -43,8 +43,8 @@ impl AudioRegion {
             duration,
             max_duration,
             ticks_to_local_factor: 0.0,
-            region_start_samples: 0,
-            region_end_samples: 0,
+            region_start_sample: 0,
+            region_end_sample: 0,
         }
     }
 
@@ -58,8 +58,8 @@ impl AudioRegion {
             duration,
             max_duration,
             ticks_to_local_factor: 0.0,
-            region_start_samples: 0,
-            region_end_samples: 0,
+            region_start_sample: 0,
+            region_end_sample: 0,
         }
     }
 
@@ -67,9 +67,9 @@ impl AudioRegion {
 
     pub(super) fn prepare(&mut self, tempo_map: &TempoMap, audio_ctx: &AudioContext) {
         self.ticks_to_local_factor =
-            (60.0 * self.info.sample_rate as f64) / (audio_ctx.resolution as f64 * self.info.bpm);
-        self.region_start_samples = tempo_map.ticks_to_samples(self.start);
-        self.region_end_samples = tempo_map.ticks_to_samples(self.end());
+            60.0 * self.info.sample_rate as f64 / (audio_ctx.resolution as f64 * self.info.bpm);
+        self.region_start_sample = tempo_map.ticks_to_samples(self.start);
+        self.region_end_sample = tempo_map.ticks_to_samples(self.end());
     }
 
     /// Reads and writes the audio data to the given buffer based on the current playhead position and the buffer size.
@@ -88,7 +88,7 @@ impl AudioRegion {
     ) {
         // Skip processing if the buffer falls entirely outside the region's range
         let buffer_end = playhead + playback_ctx.buffer_size;
-        if buffer_end <= self.region_start_samples || playhead >= self.region_end_samples {
+        if buffer_end <= self.region_start_sample || playhead >= self.region_end_sample {
             return;
         }
 
@@ -98,42 +98,43 @@ impl AudioRegion {
         //         ^ playhead                   ^ buffer_end
         // Region:      [<-- Region -->]
         // global_start ^              ^ global_end
-        let global_start = playhead.max(self.region_start_samples);
-        let global_end = buffer_end.min(self.region_end_samples);
+        let global_start = playhead.max(self.region_start_sample);
+        let global_end = buffer_end.min(self.region_end_sample);
 
-        // Convert the playhead position to a sample index in the audio data
-        let data_start = self.calculate_local_samples(global_start, tempo_map) * self.info.channels;
-        let data_end = self.calculate_local_samples(global_end, tempo_map) * self.info.channels;
-        if data_start >= data_end {
-            return;
-        }
+        // Get the tempo sections from the tempo map
+        let sections = tempo_map.get_sections_in_range(global_start, global_end, &self.info);
+        let mut current_dst_offset = (global_start - playhead) * MAX_CHANNELS;
 
-        // Get the slice of the audio data from the audio source
-        let Some(data) = self.data_source.get_data_in(data_start..data_end) else {
-            // If the data was None, do not write anything to the buffer and return
-            return;
-        };
+        for section in sections {
+            if section.local_start_sample >= section.local_end_sample {
+                continue;
+            }
 
-        // Resample the audio data
-        let resampled = tempo_strech(
-            &data,
-            &self.info,
-            global_start,
-            global_end,
-            playback_ctx.sample_rate,
-            tempo_map,
-        );
+            // Get the audio data that corresponds to the current section
+            let data_start = section.local_start_sample * self.info.channels;
+            let data_end = section.local_end_sample * self.info.channels;
+            if let Some(data) = self.data_source.get_data_in(data_start..data_end) {
+                // Resample the audio data based on the resample ratio calculated by the tempo map
+                let resampled = if (section.resample_ratio - 1.0).abs() < 1e-6 {
+                    data.to_vec()
+                } else {
+                    resample_channels(&data, self.info.channels, section.resample_ratio)
+                };
 
-        // Calculate the output buffer offset where writing should start
-        let buffer_offset = self.region_start_samples.saturating_sub(playhead) * MAX_CHANNELS;
-        // Interleave and add the resampled data to the buffer; The buffer must have MAX_CHANNELS channels
-        if buffer_offset < buffer.len() {
-            add_samples_interleaved(
-                &resampled,
-                &mut buffer[buffer_offset..],
-                self.info.channels,
-                MAX_CHANNELS,
-            );
+                // Interleave and add the resampled data to the buffer, which must have MAX_CHANNELS channels
+                if current_dst_offset < buffer.len() {
+                    add_samples_interleaved(
+                        &resampled,
+                        &mut buffer[current_dst_offset..],
+                        self.info.channels,
+                        MAX_CHANNELS,
+                    );
+                }
+
+                // Advance the destination offset
+                let rendered_frames = section.global_end_sample - section.global_start_sample;
+                current_dst_offset += rendered_frames * MAX_CHANNELS;
+            }
         }
     }
 

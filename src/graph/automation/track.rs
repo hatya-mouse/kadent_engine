@@ -139,15 +139,15 @@ impl AutomationTrack {
                     let keyframe_2 = &keyframes[i + 1];
 
                     let delta_value = keyframe_2.value - keyframe_1.value;
-                    let end_samples = tempo_map.ticks_to_samples(keyframe_2.ticks);
-                    let delta_samples = end_samples - tempo_map.ticks_to_samples(keyframe_1.ticks);
+                    let end_sample = tempo_map.ticks_to_samples(keyframe_2.ticks);
+                    let delta_samples = end_sample - tempo_map.ticks_to_samples(keyframe_1.ticks);
                     let gradient_value = if delta_samples > 0 {
                         delta_value / delta_samples as f32
                     } else {
                         0.0
                     };
 
-                    gradient_vals.push((end_samples, gradient_value));
+                    gradient_vals.push((end_sample, gradient_value));
                 }
             }
             AutomationTrack::Int {

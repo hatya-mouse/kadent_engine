@@ -1,12 +1,15 @@
 mod project;
 mod tempo_event;
 mod tempo_map;
+mod tempo_section;
 mod track_id;
 
 pub use project::Project;
 pub use tempo_event::TempoEvent;
 pub use tempo_map::TempoMap;
 pub use track_id::TrackID;
+
+pub(crate) use tempo_section::TempoSection;
 
 use crate::{MAX_CHANNELS, data_types::PlaybackContext};
 use rayon::iter::{ParallelBridge, ParallelIterator};
