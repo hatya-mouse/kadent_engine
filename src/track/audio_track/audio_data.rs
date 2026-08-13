@@ -27,8 +27,13 @@ pub enum AudioSource {
 }
 
 impl AudioSource {
-    /// Returns the slice of interleaved audio data for the given channel.
-    pub fn get_data(&self, range: Range<usize>) -> Option<Vec<f32>> {
+    /// Returns the full interleaved audio data for the given channel.
+    pub fn get_data(&self) -> Option<Vec<f32>> {
+        self.get_data_in(0..usize::MAX)
+    }
+
+    /// Returns the interleaved audio data for the given channel.
+    pub fn get_data_in(&self, range: Range<usize>) -> Option<Vec<f32>> {
         match self {
             AudioSource::Original(path) => load_from_path(path, range),
             AudioSource::Modified(path) => load_from_path(path, range),

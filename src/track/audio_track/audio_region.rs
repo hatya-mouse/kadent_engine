@@ -73,7 +73,7 @@ impl AudioRegion {
         }
 
         // Get the slice of the audio data from the audio source
-        let Some(data) = self.data_source.get_data(local_start..local_end) else {
+        let Some(data) = self.data_source.get_data_in(local_start..local_end) else {
             // If the data was None, do not write anything to the buffer and return
             return;
         };
