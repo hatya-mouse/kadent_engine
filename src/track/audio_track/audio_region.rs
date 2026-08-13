@@ -19,8 +19,10 @@ pub struct AudioRegion {
     pub max_duration: Ticks,
 
     /// Cached region start global sample index in the current playback context.
+    #[serde(skip)]
     region_start_sample: usize,
     /// Cached region end global sample index in the current playback context.
+    #[serde(skip)]
     region_end_sample: usize,
 }
 
