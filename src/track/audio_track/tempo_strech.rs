@@ -64,26 +64,25 @@ pub(super) fn tempo_strech(
 
     // Resample each tempo section and append it to the output data
     let mut output_data = Vec::new();
+    let mut last_section_end_sample = 0;
+
     for section in sections {
+        // Calculate the ratio of the sample rate for the section
         let resample_ratio =
             src_info.sample_rate as f64 * src_info.bpm / (section.2 * dst_sample_rate as f64);
         let inv_resample_ratio = 1.0 / resample_ratio;
 
-        // Calculate the relative start and the end index by subtracting by the start index of the part to be resampled
-        let src_start_sample = (section.0.saturating_sub(start_samples) as f64 * inv_resample_ratio)
-            .min(src_info.frames as f64) as usize;
-        let src_end_sample = (section.1.saturating_sub(start_samples) as f64 * inv_resample_ratio)
-            .min(src_info.frames as f64) as usize;
-
-        // Calculate the number of samples in the section and skip if it's zero
-        let section_samples = src_end_sample - src_start_sample;
+        // Number of samples in the section
+        let section_samples = section.1.saturating_sub(section.0);
         if section_samples == 0 {
             continue;
         }
 
-        // Calculate the start and end index of the section in the source buffer
-        let src_start_index = src_start_sample * src_info.channels;
-        let src_end_index = src_end_sample * src_info.channels;
+        // Calculate the number of samples in the section and get the start and end sample index of the section in the source buffer
+        let section_data_samples = (section_samples as f64 * inv_resample_ratio) as usize;
+        let src_start_index = last_section_end_sample * src_info.channels;
+        last_section_end_sample += section_data_samples;
+        let src_end_index = last_section_end_sample * src_info.channels;
 
         // Then get the section data from the source buffer
         let section_data = &src.get(src_start_index..src_end_index).unwrap_or(&[]);
