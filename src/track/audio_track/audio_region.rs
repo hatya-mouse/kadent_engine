@@ -131,7 +131,7 @@ impl AudioRegion {
             playback_ctx.sample_rate,
             tempo_map,
         );
-        println!("resampled");
+        println!("resampled: {:?}", resampled);
 
         // Calculate the output buffer offset where writing should start
         let buffer_offset = self.region_start_samples.saturating_sub(playhead) * MAX_CHANNELS;
