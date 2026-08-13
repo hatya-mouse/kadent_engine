@@ -96,6 +96,8 @@ impl AudioRegion {
             return;
         }
 
+        println!("render_buffer 1");
+
         // Calculate where to start and end reading from the audio data
         // This is to handle edge cases
         // Buffer: |<-- Current buffer block -->|
@@ -109,12 +111,14 @@ impl AudioRegion {
         let local_start = self.calculate_local_samples(global_start, tempo_map);
         let local_end = self.calculate_local_samples(global_end, tempo_map);
         if local_start >= local_end {
+            println!("local_start: {}, local_end: {}", local_start, local_end);
             return;
         }
 
         // Get the slice of the audio data from the audio source
         let Some(data) = self.data_source.get_data_in(local_start..local_end) else {
             // If the data was None, do not write anything to the buffer and return
+            println!("data filed to load");
             return;
         };
 
@@ -127,6 +131,7 @@ impl AudioRegion {
             playback_ctx.sample_rate,
             tempo_map,
         );
+        println!("resampled");
 
         // Calculate the output buffer offset where writing should start
         let buffer_offset = self.region_start_samples.saturating_sub(playhead) * MAX_CHANNELS;
