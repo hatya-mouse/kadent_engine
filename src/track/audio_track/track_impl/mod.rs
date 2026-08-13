@@ -1,4 +1,5 @@
 mod process;
+mod render_worker;
 
 use crate::{
     MAX_CHANNELS,
@@ -63,7 +64,7 @@ impl Track for AudioTrack {
     ) -> Result<(), GraphError> {
         // Prepare the regions
         for region in self.regions.values_mut() {
-            region.prepare(audio_ctx);
+            region.prepare(tempo_map, audio_ctx);
         }
 
         // Initialize the local buffers

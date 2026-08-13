@@ -15,7 +15,7 @@ use crate::{
 };
 use std::collections::HashMap;
 
-#[derive(Default, Clone)]
+#[derive(Default)]
 pub struct AudioTrack {
     // --- GRAPH ---
     graph: Graph,
@@ -24,6 +24,10 @@ pub struct AudioTrack {
     regions: HashMap<RegionID, AudioRegion>,
     /// The pre-processed audio data, ready to be processed by the Graph.
     graph_input_buffer: Vec<f32>,
+
+    // --- RING BUFFER ---
+    /// The ring buffer to receive the rendered audio data from the render thread.
+    ringbuf_rx: Option<ringbuf::HeapCons<f32>>,
 
     // --- LOCAL BUFFER ---
     local_buffer: Vec<f32>,
@@ -83,5 +87,18 @@ impl AudioTrack {
 
     pub fn set_regions(&mut self, regions: HashMap<RegionID, AudioRegion>) {
         self.regions = regions;
+    }
+}
+
+impl Clone for AudioTrack {
+    fn clone(&self) -> Self {
+        Self {
+            graph: self.graph.clone(),
+            regions: self.regions.clone(),
+            graph_input_buffer: self.graph_input_buffer.clone(),
+            ringbuf_rx: None,
+            local_buffer: self.local_buffer.clone(),
+            next_region_id: self.next_region_id,
+        }
     }
 }
