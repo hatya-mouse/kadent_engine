@@ -123,6 +123,7 @@ impl AudioRegion {
         };
 
         // Resample the audio data
+        println!("data: {:?}", data);
         let resampled = tempo_strech(
             &data,
             &self.info,
