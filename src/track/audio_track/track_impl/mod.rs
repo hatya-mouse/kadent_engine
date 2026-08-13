@@ -5,10 +5,7 @@ use crate::{
     data_types::{PlaybackContext, Ticks},
     graph::{Graph, error::GraphError},
     mixer::TempoMap,
-    track::{
-        RegionID, Track,
-        audio_track::{AudioTrack, tempo_strech::tempo_strech},
-    },
+    track::{RegionID, Track, audio_track::AudioTrack},
 };
 
 impl Track for AudioTrack {
@@ -63,42 +60,8 @@ impl Track for AudioTrack {
         tempo_map: &TempoMap,
         playback_ctx: &PlaybackContext,
     ) -> Result<(), GraphError> {
-        // Calculate the total number of frames to process
-        let end_ticks = self
-            .regions
-            .values()
-            .map(|r| r.start + r.duration)
-            .max()
-            .unwrap_or(Ticks(0));
-        let end_samples = tempo_map.ticks_to_samples(end_ticks);
-        let total_samples =
-            end_samples.div_ceil(playback_ctx.buffer_size) * playback_ctx.buffer_size;
-
-        // Initialize the processed vector with zeros
-        self.pre_processed = vec![0.0; total_samples * MAX_CHANNELS];
-
-        // Resample the each regions and add them to the pre_processed buffer
-        for region in self.regions.values() {
-            // Calculate the start sample index
-            let region_start_sample = tempo_map.ticks_to_samples(region.start) * MAX_CHANNELS;
-            let copy_len = self.pre_processed.len().saturating_sub(region_start_sample);
-            let region_end_sample = region_start_sample + copy_len;
-
-            // Pass MAX_CHANNELS instead of playback_ctx.channels to tempo_strech
-            // so that the resampled audio is an interleaved buffer with `MAX_CHANNELS` channels,
-            // which is as the same as the `Sample` type used to process the graph
-            tempo_strech(
-                region,
-                &mut self.pre_processed[region_start_sample..region_end_sample],
-                playback_ctx.sample_rate,
-                MAX_CHANNELS,
-                tempo_map,
-            );
-        }
-
         // Initialize the local buffers
         self.init_local_buffers(playback_ctx);
-
         // Then prepare the graph
         self.graph.prepare(tempo_map, playback_ctx)
     }

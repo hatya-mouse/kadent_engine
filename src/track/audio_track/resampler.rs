@@ -7,21 +7,16 @@ pub fn resample_channels(
     source: &[f32],
     channels: usize,
     source_samples: usize,
-    source_sample_rate: u64,
-    target_sample_rate: u64,
+    ratio: f64,
 ) -> Vec<f32> {
-    if source_samples == 0 || target_sample_rate == 0 {
+    if source_samples == 0 || ratio == 0.0 {
         return Vec::new();
     }
 
     // Calculate the length of the output array (interleaved) and fill it with zeros
-    let target_samples = ((source_samples as u128 * target_sample_rate as u128)
-        / source_sample_rate as u128) as usize;
+    let target_samples = (source_samples as f64 * ratio).ceil() as usize;
     let full_len = target_samples * channels;
     let mut output = vec![0f32; full_len];
-
-    // Calculate the ratio of the source and the target sample rate
-    let ratio = source_sample_rate as f64 / target_sample_rate as f64;
 
     // Loop through each sample in the target array
     output

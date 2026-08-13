@@ -1,8 +1,11 @@
+mod audio_data;
 mod audio_region;
 mod resampler;
 mod tempo_strech;
 mod track_impl;
 
+use audio_data::AudioDataInfo;
+pub use audio_data::AudioSource;
 pub use audio_region::AudioRegion;
 
 use crate::{
@@ -19,10 +22,8 @@ pub struct AudioTrack {
 
     // --- RAW AUDIO DATA ---
     regions: HashMap<RegionID, AudioRegion>,
-    /// Pre-processed audio data for the audio track.
-    /// The data is stored in the form of a interleaved buffer with `MAX_CHANNELS` channels.
-    /// This means that this buffer can be reinterpreted as an array of `Sample` type, which has `MAX_CHANNELS` channels.
-    pre_processed: Vec<f32>,
+    /// The pre-processed audio data, ready to be processed by the Graph.
+    graph_input_buffer: Vec<f32>,
 
     // --- LOCAL BUFFER ---
     local_buffer: Vec<f32>,
