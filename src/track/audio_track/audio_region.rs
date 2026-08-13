@@ -113,7 +113,6 @@ impl AudioRegion {
             // If the data was None, do not write anything to the buffer and return
             return;
         };
-        println!("data: {:?}", data);
 
         // Resample the audio data
         let resampled = tempo_strech(
@@ -124,7 +123,6 @@ impl AudioRegion {
             playback_ctx.sample_rate,
             tempo_map,
         );
-        println!("resampled: {:?}", resampled);
 
         // Calculate the output buffer offset where writing should start
         let buffer_offset = self.region_start_samples.saturating_sub(playhead) * MAX_CHANNELS;
