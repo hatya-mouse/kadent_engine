@@ -87,8 +87,10 @@ pub(super) fn tempo_strech(
         // Then get the section data from the source buffer
         let section_data = &src.get(src_start_index..src_end_index).unwrap_or(&[]);
         println!(
-            "src_start_index: {}, src_end_index: {}",
-            src_start_index, src_end_index
+            "src_start_index: {}, src_end_index: {}, src.len(): {}",
+            src_start_index,
+            src_end_index,
+            src.len()
         );
 
         // Calculate the ratio of the sample rate and the bpm
