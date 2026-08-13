@@ -5,10 +5,39 @@ use ringbuf::traits::{Observer, Producer};
 use std::{
     sync::{
         Arc,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     time::Duration,
 };
+
+/// A small struct used to synchronize the playhead between the main thread and the render worker thread when seeking.
+#[derive(Clone)]
+pub(in crate::track::audio_track) struct TrackSyncState {
+    seek_requested: Arc<AtomicBool>,
+    seek_target: Arc<AtomicUsize>,
+}
+
+impl TrackSyncState {
+    pub fn new() -> Self {
+        Self {
+            seek_requested: Arc::new(AtomicBool::new(false)),
+            seek_target: Arc::new(AtomicUsize::new(0)),
+        }
+    }
+
+    pub fn request_seek(&self, target: usize) {
+        self.seek_requested.store(true, Ordering::Release);
+        self.seek_target.store(target, Ordering::Release);
+    }
+
+    pub fn consume_seek(&self) -> Option<usize> {
+        if self.seek_requested.swap(false, Ordering::AcqRel) {
+            Some(self.seek_target.load(Ordering::Acquire))
+        } else {
+            None
+        }
+    }
+}
 
 pub(super) fn spawn_render_worker(
     mut producer: ringbuf::HeapProd<f32>,
@@ -16,6 +45,7 @@ pub(super) fn spawn_render_worker(
     tempo_map: TempoMap,
     playback_ctx: PlaybackContext,
     is_running: Arc<AtomicBool>,
+    sync_state: TrackSyncState,
     mut worker_playhead: usize,
 ) -> std::thread::JoinHandle<()> {
     std::thread::spawn(move || {
@@ -24,6 +54,11 @@ pub(super) fn spawn_render_worker(
 
         // Keep render worker running until the is_running flag is set to false
         while is_running.load(Ordering::Relaxed) {
+            // Synchronize the worker playhead if a seek has been requested
+            if let Some(new_playhead) = sync_state.consume_seek() {
+                worker_playhead = new_playhead;
+            }
+
             if producer.vacant_len() >= buffer_len {
                 // Clear the render buffer before rendering
                 render_buf.fill(0.0);

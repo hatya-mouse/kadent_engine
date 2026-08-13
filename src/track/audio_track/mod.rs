@@ -4,16 +4,21 @@ mod resampler;
 mod tempo_strech;
 mod track_impl;
 
-use audio_data::AudioDataInfo;
-pub use audio_data::AudioSource;
+pub use audio_data::{AudioDataInfo, AudioSource};
 pub use audio_region::AudioRegion;
 
 use crate::{
     graph::Graph,
     node::builtin::{AudioInputNode, AudioOutputNode},
-    track::RegionID,
+    track::{RegionID, audio_track::track_impl::TrackSyncState},
 };
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+};
 
 #[derive(Default)]
 pub struct AudioTrack {
@@ -25,9 +30,13 @@ pub struct AudioTrack {
     /// The pre-processed audio data, ready to be processed by the Graph.
     graph_input_buffer: Vec<f32>,
 
-    // --- RING BUFFER ---
+    // --- RENDER WORKER THREAD ---
     /// The ring buffer to receive the rendered audio data from the render thread.
-    ringbuf_rx: Option<ringbuf::HeapCons<f32>>,
+    ringbuf_cons: Option<ringbuf::HeapCons<f32>>,
+    /// Whether the worker thread should be running.
+    is_worker_running: Option<Arc<AtomicBool>>,
+    /// A sync state to synchronize the playhead position with the render worker thread.
+    sync_state: Option<TrackSyncState>,
 
     // --- LOCAL BUFFER ---
     local_buffer: Vec<f32>,
@@ -45,7 +54,13 @@ impl AudioTrack {
 
         Self {
             graph,
-            ..Default::default()
+            regions: HashMap::new(),
+            graph_input_buffer: Vec::new(),
+            ringbuf_cons: None,
+            is_worker_running: None,
+            sync_state: None,
+            local_buffer: Vec::new(),
+            next_region_id: 0,
         }
     }
 
@@ -96,9 +111,20 @@ impl Clone for AudioTrack {
             graph: self.graph.clone(),
             regions: self.regions.clone(),
             graph_input_buffer: self.graph_input_buffer.clone(),
-            ringbuf_rx: None,
+            ringbuf_cons: None,
+            is_worker_running: None,
+            sync_state: None,
             local_buffer: self.local_buffer.clone(),
             next_region_id: self.next_region_id,
+        }
+    }
+}
+
+impl Drop for AudioTrack {
+    fn drop(&mut self) {
+        // If the worker thread is running, signal it to stop
+        if let Some(is_running) = &self.is_worker_running {
+            is_running.store(false, Ordering::SeqCst);
         }
     }
 }

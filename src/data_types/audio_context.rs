@@ -24,5 +24,6 @@ impl AudioContext {
 pub struct PlaybackContext {
     pub channels: usize,
     pub sample_rate: u64,
+    /// Number of samples in the buffer for each channel.
     pub buffer_size: usize,
 }

@@ -5,7 +5,7 @@ use std::{
 };
 
 #[derive(Clone, Serialize, Deserialize)]
-pub(super) struct AudioDataInfo {
+pub struct AudioDataInfo {
     /// The number of channels in the audio data.
     pub channels: usize,
     /// The number of samples in the audio data.

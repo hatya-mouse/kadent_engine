@@ -1,12 +1,22 @@
 mod process;
 mod render_worker;
 
+pub(super) use render_worker::TrackSyncState;
+
 use crate::{
     MAX_CHANNELS,
     data_types::{AudioContext, PlaybackContext, Ticks},
     graph::{Graph, error::GraphError},
     mixer::TempoMap,
-    track::{RegionID, Track, audio_track::AudioTrack},
+    track::{
+        RegionID, Track,
+        audio_track::{AudioTrack, track_impl::render_worker::spawn_render_worker},
+    },
+};
+use ringbuf::traits::{Consumer, Split};
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
 };
 
 impl Track for AudioTrack {
@@ -52,7 +62,11 @@ impl Track for AudioTrack {
 
     // --- SEEKING ---
 
-    fn seek(&mut self, _playhead: usize, _playback_ctx: &PlaybackContext) {}
+    fn seek(&mut self, playhead: usize, _playback_ctx: &PlaybackContext) {
+        if let Some(sync_state) = &self.sync_state {
+            sync_state.request_seek(playhead);
+        }
+    }
 
     // --- TRACK PROCESSING ---
 
@@ -66,6 +80,34 @@ impl Track for AudioTrack {
         for region in self.regions.values_mut() {
             region.prepare(tempo_map, audio_ctx);
         }
+
+        // Stop the old render worker by setting the is_running flag to false
+        if let Some(is_worker_running) = &self.is_worker_running {
+            is_worker_running.store(false, Ordering::SeqCst);
+        }
+
+        // Create a new ring buffer and is_running flag for the new render worker
+        let ringbuf_size = playback_ctx.buffer_size * MAX_CHANNELS * 2;
+        let (prod, cons) = ringbuf::HeapRb::<f32>::new(ringbuf_size).split();
+        self.ringbuf_cons = Some(cons);
+
+        let is_worker_running = Arc::new(AtomicBool::new(true));
+        is_worker_running.store(true, Ordering::SeqCst);
+        self.is_worker_running = Some(is_worker_running.clone());
+
+        // Create a sync state to share the playback position between threads
+        let sync_state = TrackSyncState::new();
+
+        // Spawn a new render worker thread
+        spawn_render_worker(
+            prod,
+            self.regions.values().cloned().collect(),
+            tempo_map.clone(),
+            playback_ctx.clone(),
+            is_worker_running,
+            sync_state.clone(),
+            0,
+        );
 
         // Initialize the local buffers
         self.init_local_buffers(playback_ctx);
@@ -81,41 +123,30 @@ impl Track for AudioTrack {
         playback_ctx: &PlaybackContext,
     ) {
         if is_playing {
-            // Calculate the number of f32 values to process for the current buffer
-            let buffer_start = playhead * MAX_CHANNELS;
-            let buffer_size = playback_ctx.buffer_size * MAX_CHANNELS;
-            let buffer_end = buffer_start + buffer_size;
+            let buffer_len = MAX_CHANNELS * playback_ctx.buffer_size;
+            if let Some(ringbuf_cons) = &mut self.ringbuf_cons {
+                // Pop the rendered audio from the ring buffer into the local buffer
+                let popped = ringbuf_cons.pop_slice(&mut self.graph_input_buffer[..buffer_len]);
 
-            // Create a vector for input buffer
-            let mut input_vec: Vec<f32>;
-
-            let input_ptr = if buffer_end <= self.pre_processed.len() {
-                // Get a pointer to the input buffer
-                self.pre_processed[buffer_start..buffer_end].as_ptr() as *const u8
-            } else {
-                // If the audio data for the buffer is partially unavailable fill the rest with zero
-                let available = self.pre_processed.len().saturating_sub(buffer_start);
-                input_vec = vec![0f32; buffer_size];
-                if available > 0 {
-                    input_vec[..available].copy_from_slice(
-                        &self.pre_processed[buffer_start..buffer_start + available],
-                    );
+                // Fill the rest of the local buffer with zeros if the ring buffer didn't have enough data
+                if popped < buffer_len {
+                    self.graph_input_buffer[popped..buffer_len].fill(0.0);
                 }
-                input_vec.as_ptr() as *const u8
-            };
-
-            // Process the graph
-            self.graph.process(
-                &[input_ptr],
-                &[self.local_buffer.as_mut_ptr() as *mut u8],
-                playhead,
-                playback_ctx,
-            );
+            } else {
+                // If the ring buffer consumer is not available, fill the local buffer with zeros
+                self.graph_input_buffer.fill(0.0);
+            }
         } else {
             // Mixer::process adds local_buffer into the output every callback regardless of
             // is_playing, so it must be cleared here to prevent the previous buffer from being played repeatedly
-            self.local_buffer.fill(0.0);
+            self.graph_input_buffer.fill(0.0);
         }
+
+        let input_ptr = self.graph_input_buffer.as_ptr() as *const u8;
+        let output_ptr = self.local_buffer.as_mut_ptr() as *mut u8;
+
+        self.graph
+            .process(&[input_ptr], &[output_ptr], playhead, playback_ctx);
     }
 
     fn get_local_buffer(&self) -> &[f32] {

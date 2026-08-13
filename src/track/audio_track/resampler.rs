@@ -4,7 +4,7 @@ use rayon::{
 };
 
 pub fn resample_channels(source: &[f32], channels: usize, ratio: f64) -> Vec<f32> {
-    if source.len() == 0 || channels == 0 || ratio == 0.0 {
+    if source.is_empty() || channels == 0 || ratio == 0.0 {
         return Vec::new();
     }
     let src_samples = source.len() / channels;

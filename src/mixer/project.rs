@@ -118,7 +118,7 @@ impl Project {
         // Prepare the tracks one by one, collecting errors instead of aborting on the first one
         let mut errors = Vec::new();
         for (id, track) in self.tracks.iter_mut() {
-            if let Err(err) = track.prepare(&self.tempo_map, &playback_ctx) {
+            if let Err(err) = track.prepare(&self.tempo_map, &self.audio_ctx, &playback_ctx) {
                 errors.push((*id, err));
             }
         }
