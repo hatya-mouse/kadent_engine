@@ -3,6 +3,7 @@ mod audio_thread;
 mod export;
 mod handle;
 mod output_callback;
+mod preparation_thread;
 
 pub use audio_command::{AudioCommand, AudioError, AudioResult};
 pub use handle::AudioThreadHandle;

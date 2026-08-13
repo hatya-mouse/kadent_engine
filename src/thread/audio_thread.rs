@@ -4,13 +4,14 @@ use crate::{
     thread::{
         AudioCommand, AudioError, AudioResult, export,
         output_callback::{OutputCallbackContext, OutputCallbackState, output_callback},
+        preparation_thread::spawn_preparation_thread,
     },
 };
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use ringbuf::traits::{Consumer, Producer, Split};
 use std::sync::{
     Arc, Mutex,
-    atomic::{AtomicBool, AtomicI64, AtomicU64, AtomicUsize, Ordering},
+    atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering},
     mpsc,
 };
 
@@ -32,8 +33,18 @@ pub(super) fn audio_thread(
     let latest_mixer = Arc::new(Mutex::new(None));
     // Manage is_playing using Arc
     let is_playing = Arc::new(AtomicBool::new(false));
-    // Create a generation variable to keep track of the latest prepared mixer
-    let generation = Arc::new(AtomicUsize::new(0));
+    // The latest project and the playback context to be prepared
+    let project_to_prepare = Arc::new(Mutex::new(None));
+    // Whether the threads should terminate
+    let should_terminate = Arc::new(AtomicBool::new(false));
+
+    // Spawn a project preparation thread
+    spawn_preparation_thread(
+        project_to_prepare.clone(),
+        result_tx.clone(),
+        latest_mixer.clone(),
+        should_terminate.clone(),
+    );
 
     // Get a cpal device
     let host = cpal::default_host();
@@ -96,6 +107,7 @@ pub(super) fn audio_thread(
                     is_playing.store(false, Ordering::Release);
                 }
                 AudioCommand::UpdateProject(new_project) => {
+                    // TODO: Use project config to select the best output stream config
                     project_config = cpal::StreamConfig {
                         channels: latest_playback_ctx.channels as u16,
                         sample_rate: latest_playback_ctx.sample_rate as u32,
@@ -104,29 +116,9 @@ pub(super) fn audio_thread(
                         ),
                     };
 
-                    // Increment the current generation by one to mark it as the latest
-                    let current_gen = generation.fetch_add(1, Ordering::SeqCst) + 1;
-
-                    // Copy the required variables to move into the thread
-                    let gen_arc = Arc::clone(&generation);
-                    let latest_arc = Arc::clone(&latest_mixer);
-                    let result_tx = result_tx.clone();
-                    let playback_ctx = latest_playback_ctx.clone();
-                    std::thread::spawn(move || {
-                        // Prepare the project before applying the project
-                        let (mixer, errors) = new_project.prepare(playback_ctx);
-                        for (track_id, err) in errors {
-                            // Send the error to the audio thread, but don't abort the preparation
-                            result_tx
-                                .send(Err(AudioError::TrackPrepareFailed(track_id, err)))
-                                .ok();
-                        }
-                        // Check if the mixer is the latest one
-                        if gen_arc.load(Ordering::SeqCst) == current_gen {
-                            // Send the prepared mixer to the audio playback thread
-                            *latest_arc.lock().unwrap() = Some(mixer);
-                        }
-                    });
+                    if let Ok(mut guard) = project_to_prepare.try_lock() {
+                        guard.replace((*new_project, latest_playback_ctx.clone()));
+                    }
                 }
                 AudioCommand::ExportAudio(project, playback_ctx) => {
                     let result_tx = result_tx.clone();
@@ -189,6 +181,8 @@ pub(super) fn audio_thread(
     }
 
     // Stream will be dropped here and the output callback should stop
+    // Terminate other threads
+    should_terminate.store(true, Ordering::Release);
 }
 
 fn recreate_output_callback(
