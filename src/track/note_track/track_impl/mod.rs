@@ -2,7 +2,7 @@ mod process;
 
 use crate::{
     MAX_CHANNELS,
-    data_types::{AudioContext, PlaybackContext, Ticks},
+    data_types::{PlaybackContext, Ticks},
     graph::{Graph, error::GraphError},
     mixer::TempoMap,
     track::{
@@ -67,7 +67,6 @@ impl Track for NoteTrack {
     fn prepare(
         &mut self,
         tempo_map: &TempoMap,
-        _audio_ctx: &AudioContext,
         playback_ctx: &PlaybackContext,
     ) -> Result<(), GraphError> {
         // Pre-process the sequenced notes into processed notes

@@ -1,6 +1,6 @@
 use crate::{
     MAX_CHANNELS,
-    data_types::{AudioContext, PlaybackContext, Ticks},
+    data_types::{PlaybackContext, Ticks},
     mixer::TempoMap,
     track::audio_track::{
         AudioDataInfo, AudioSource, resampler::resample_channels,
@@ -18,8 +18,6 @@ pub struct AudioRegion {
     pub duration: Ticks,
     pub max_duration: Ticks,
 
-    /// Cached factor used to convert relative global ticks to local sample indices in the audio data.
-    ticks_to_local_factor: f64,
     /// Cached region start global sample index in the current playback context.
     region_start_sample: usize,
     /// Cached region end global sample index in the current playback context.
@@ -42,7 +40,6 @@ impl AudioRegion {
             start,
             duration,
             max_duration,
-            ticks_to_local_factor: 0.0,
             region_start_sample: 0,
             region_end_sample: 0,
         }
@@ -57,7 +54,6 @@ impl AudioRegion {
             start,
             duration,
             max_duration,
-            ticks_to_local_factor: 0.0,
             region_start_sample: 0,
             region_end_sample: 0,
         }
@@ -65,9 +61,7 @@ impl AudioRegion {
 
     // --- REGION PROCESSING ---
 
-    pub(super) fn prepare(&mut self, tempo_map: &TempoMap, audio_ctx: &AudioContext) {
-        self.ticks_to_local_factor =
-            60.0 * self.info.sample_rate as f64 / (audio_ctx.resolution as f64 * self.info.bpm);
+    pub(super) fn prepare(&mut self, tempo_map: &TempoMap) {
         self.region_start_sample = tempo_map.ticks_to_samples(self.start);
         self.region_end_sample = tempo_map.ticks_to_samples(self.end());
     }
@@ -144,13 +138,5 @@ impl AudioRegion {
     #[inline]
     fn end(&self) -> Ticks {
         self.start + self.duration
-    }
-
-    /// Converts the global sample index to the corresponding local sample index in the audio data.
-    #[inline]
-    fn calculate_local_samples(&self, global_samples: usize, tempo_map: &TempoMap) -> usize {
-        let global_ticks = tempo_map.samples_to_ticks(global_samples);
-        let delta_ticks = global_ticks.0.saturating_sub(self.start.0) as f64;
-        (delta_ticks * self.ticks_to_local_factor) as usize
     }
 }

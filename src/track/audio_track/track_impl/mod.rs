@@ -5,7 +5,7 @@ pub(super) use render_worker::TrackSyncState;
 
 use crate::{
     MAX_CHANNELS,
-    data_types::{AudioContext, PlaybackContext, Ticks},
+    data_types::{PlaybackContext, Ticks},
     graph::{Graph, error::GraphError},
     mixer::TempoMap,
     track::{
@@ -73,12 +73,11 @@ impl Track for AudioTrack {
     fn prepare(
         &mut self,
         tempo_map: &TempoMap,
-        audio_ctx: &AudioContext,
         playback_ctx: &PlaybackContext,
     ) -> Result<(), GraphError> {
         // Prepare the regions
         for region in self.regions.values_mut() {
-            region.prepare(tempo_map, audio_ctx);
+            region.prepare(tempo_map);
         }
 
         // Stop the old render worker by setting the is_running flag to false
