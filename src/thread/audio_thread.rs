@@ -118,6 +118,8 @@ pub(super) fn audio_thread(
 
                     if let Ok(mut guard) = project_to_prepare.try_lock() {
                         guard.replace((*new_project, latest_playback_ctx.clone()));
+                    } else {
+                        result_tx.send(Err(AudioError::PreparationFailed)).unwrap();
                     }
                 }
                 AudioCommand::ExportAudio(project, playback_ctx) => {
