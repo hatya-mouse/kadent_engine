@@ -27,6 +27,23 @@ pub struct AudioRegion {
 }
 
 impl AudioRegion {
+    // --- INITIALIZER ---
+
+    pub fn zeros(info: AudioDataInfo, start: Ticks, duration: Ticks) -> Self {
+        let max_duration = duration;
+        let data_source = AudioSource::Zero;
+        Self {
+            data_source,
+            info,
+            start,
+            duration,
+            max_duration,
+            ticks_to_local_factor: 0.0,
+            region_start_samples: 0,
+            region_end_samples: 0,
+        }
+    }
+
     // --- REGION PROCESSING ---
 
     pub(super) fn prepare(&mut self, tempo_map: &TempoMap, audio_ctx: &AudioContext) {
