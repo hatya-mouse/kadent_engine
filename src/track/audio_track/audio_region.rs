@@ -29,6 +29,25 @@ pub struct AudioRegion {
 impl AudioRegion {
     // --- INITIALIZER ---
 
+    pub fn new(
+        data_source: AudioSource,
+        info: AudioDataInfo,
+        start: Ticks,
+        duration: Ticks,
+    ) -> Self {
+        let max_duration = duration;
+        Self {
+            data_source,
+            info,
+            start,
+            duration,
+            max_duration,
+            ticks_to_local_factor: 0.0,
+            region_start_samples: 0,
+            region_end_samples: 0,
+        }
+    }
+
     pub fn zeros(info: AudioDataInfo, start: Ticks, duration: Ticks) -> Self {
         let max_duration = duration;
         let data_source = AudioSource::Zero;
