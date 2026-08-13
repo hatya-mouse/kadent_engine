@@ -89,14 +89,8 @@ impl AudioRegion {
         // Skip processing if the buffer falls entirely outside the region's range
         let buffer_end = playhead + playback_ctx.buffer_size;
         if buffer_end <= self.region_start_samples || playhead >= self.region_end_samples {
-            println!(
-                "Skipping region render: playhead {} buffer_end {} region_start {} region_end {}",
-                playhead, buffer_end, self.region_start_samples, self.region_end_samples
-            );
             return;
         }
-
-        println!("render_buffer 1");
 
         // Calculate where to start and end reading from the audio data
         // This is to handle edge cases
@@ -111,19 +105,16 @@ impl AudioRegion {
         let local_start = self.calculate_local_samples(global_start, tempo_map);
         let local_end = self.calculate_local_samples(global_end, tempo_map);
         if local_start >= local_end {
-            println!("local_start: {}, local_end: {}", local_start, local_end);
             return;
         }
 
         // Get the slice of the audio data from the audio source
         let Some(data) = self.data_source.get_data_in(local_start..local_end) else {
             // If the data was None, do not write anything to the buffer and return
-            println!("data filed to load");
             return;
         };
 
         // Resample the audio data
-        println!("data: {:?}", data);
         let resampled = tempo_strech(
             &data,
             &self.info,
@@ -132,7 +123,6 @@ impl AudioRegion {
             playback_ctx.sample_rate,
             tempo_map,
         );
-        println!("resampled: {:?}", resampled);
 
         // Calculate the output buffer offset where writing should start
         let buffer_offset = self.region_start_samples.saturating_sub(playhead) * MAX_CHANNELS;
