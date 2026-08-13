@@ -94,7 +94,7 @@ pub(super) fn tempo_strech(
         let src_end_index = src_end_sample * src_info.channels;
 
         // Then get the section data from the source buffer
-        let section_data = &src[src_start_index..src_end_index];
+        let section_data = &src.get(src_start_index..src_end_index).unwrap_or(&[]);
 
         // Calculate the source sample rate to change the tempo
         let resample_ratio =
