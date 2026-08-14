@@ -81,8 +81,8 @@ impl Track for AudioTrack {
         }
 
         // Stop the old render worker by setting the is_running flag to false
-        if let Some(is_worker_running) = &self.is_worker_running {
-            is_worker_running.store(false, Ordering::SeqCst);
+        if let Some(should_worker_stop) = &self.should_worker_stop {
+            should_worker_stop.store(true, Ordering::SeqCst);
         }
 
         // Create a new ring buffer and is_running flag for the new render worker
@@ -90,9 +90,9 @@ impl Track for AudioTrack {
         let (prod, cons) = ringbuf::HeapRb::<f32>::new(ringbuf_size).split();
         self.ringbuf_cons = Some(cons);
 
-        let is_worker_running = Arc::new(AtomicBool::new(true));
-        is_worker_running.store(true, Ordering::SeqCst);
-        self.is_worker_running = Some(is_worker_running.clone());
+        let should_worker_stop = Arc::new(AtomicBool::new(true));
+        should_worker_stop.store(false, Ordering::SeqCst);
+        self.should_worker_stop = Some(should_worker_stop.clone());
 
         // Create a sync state to share the playback position between threads
         let sync_state = TrackSyncState::new();
@@ -104,7 +104,7 @@ impl Track for AudioTrack {
             self.regions.values().cloned().collect(),
             tempo_map.clone(),
             playback_ctx.clone(),
-            is_worker_running,
+            should_worker_stop,
             sync_state,
             0,
         );

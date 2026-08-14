@@ -5,7 +5,7 @@ use crate::{
     thread::{
         AudioCommand, AudioError, AudioResult, export,
         output_callback::{OutputCallbackContext, OutputCallbackState, output_callback},
-        preparation_thread::spawn_preparation_thread,
+        preparation_thread::{PrepareState, spawn_preparation_thread},
     },
 };
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
@@ -34,17 +34,14 @@ pub(super) fn audio_thread(
     let latest_mixer = Arc::new(Mutex::new(None));
     // Manage is_playing using Arc
     let is_playing = Arc::new(AtomicBool::new(false));
-    // The latest project and the playback context to be prepared
-    let project_to_prepare = Arc::new(Mutex::new(None));
-    // Whether the threads should terminate
-    let should_terminate = Arc::new(AtomicBool::new(false));
+    // The state to notify the preparation thread to prepare a new project
+    let prepare_state = Arc::new(PrepareState::new());
 
     // Spawn a project preparation thread
     spawn_preparation_thread(
-        project_to_prepare.clone(),
+        prepare_state.clone(),
         result_tx.clone(),
         latest_mixer.clone(),
-        should_terminate.clone(),
     );
 
     // Get a cpal device
@@ -117,11 +114,7 @@ pub(super) fn audio_thread(
                         ),
                     };
 
-                    if let Ok(mut guard) = project_to_prepare.try_lock() {
-                        guard.replace((*new_project, latest_playback_ctx.clone()));
-                    } else {
-                        result_tx.send(Err(AudioError::PreparationFailed)).unwrap();
-                    }
+                    prepare_state.request_preparation(new_project, latest_playback_ctx.clone());
                 }
                 AudioCommand::ExportAudio(project, playback_ctx) => {
                     let result_tx = result_tx.clone();
@@ -186,8 +179,8 @@ pub(super) fn audio_thread(
     }
 
     // Stream will be dropped here and the output callback should stop
-    // Terminate other threads
-    should_terminate.store(true, Ordering::Release);
+    // Terminate preparation thread
+    prepare_state.request_termination();
 }
 
 fn recreate_output_callback(

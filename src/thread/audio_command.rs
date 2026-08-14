@@ -24,8 +24,6 @@ pub enum AudioResult {
 }
 
 pub enum AudioError {
-    /// Audio thread failed to send preparation request to the preparation thread.
-    PreparationFailed,
     /// The track preparation failed for a specific track because of an error in the node graph.
     TrackPrepareFailed(TrackID, GraphError),
     /// CPAL stream error has occured during playback.

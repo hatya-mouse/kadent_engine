@@ -42,7 +42,7 @@ pub(super) fn spawn_render_worker(
     mut regions: Vec<AudioRegion>,
     tempo_map: TempoMap,
     playback_ctx: PlaybackContext,
-    is_running: Arc<AtomicBool>,
+    should_terminate: Arc<AtomicBool>,
     sync_state: TrackSyncState,
     mut worker_playhead: usize,
 ) -> std::thread::JoinHandle<()> {
@@ -51,7 +51,7 @@ pub(super) fn spawn_render_worker(
         let mut render_buf = vec![0.0; buffer_len];
 
         // Keep render worker running until the is_running flag is set to false
-        while is_running.load(Ordering::Relaxed) {
+        while !should_terminate.load(Ordering::Relaxed) {
             // Synchronize the worker playhead if a seek has been requested
             if let Some(new_playhead) = sync_state.consume_seek() {
                 worker_playhead = new_playhead;
