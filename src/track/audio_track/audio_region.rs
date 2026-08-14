@@ -12,9 +12,12 @@ use std::sync::Arc;
 #[derive(Clone, Serialize, Deserialize)]
 pub struct AudioRegion {
     pub data_source: AudioSource,
+    /// The start ticks of the audio region in the project timeline.
     pub start: Ticks,
+    /// The duration of the audio region in ticks.
     pub duration: Ticks,
-    pub max_duration: Ticks,
+    /// The start offset sample index in the audio data.
+    pub start_offset: usize,
     /// The bpm associated with the audio data. This is used to change the tempo when the tempo of the project is different.
     pub bpm: f64,
 
@@ -35,13 +38,18 @@ pub struct AudioRegion {
 impl AudioRegion {
     // --- INITIALIZER ---
 
-    pub fn new(data_source: AudioSource, start: Ticks, duration: Ticks, bpm: f64) -> Self {
-        let max_duration = duration;
+    pub fn new(
+        data_source: AudioSource,
+        start: Ticks,
+        duration: Ticks,
+        start_offset: usize,
+        bpm: f64,
+    ) -> Self {
         Self {
             data_source,
             start,
             duration,
-            max_duration,
+            start_offset,
             bpm,
             region_start_sample: 0,
             region_end_sample: 0,
@@ -50,14 +58,13 @@ impl AudioRegion {
         }
     }
 
-    pub fn zeros(start: Ticks, duration: Ticks, bpm: f64) -> Self {
-        let max_duration = duration;
+    pub fn zeros(start: Ticks, duration: Ticks, start_offset: usize, bpm: f64) -> Self {
         let data_source = AudioSource::Zero;
         Self {
             data_source,
             start,
             duration,
-            max_duration,
+            start_offset,
             bpm,
             region_start_sample: 0,
             region_end_sample: 0,
