@@ -198,7 +198,7 @@ impl TempoMap {
             // Calculate the number of samples in local sample rate in the section
             let section_end_global = next_event_sample.min(target_sample);
             let section_samples_global = section_end_global - current_sample_global;
-            let section_samples_local = (section_samples_global as f64 * resample_ratio) as usize;
+            let section_samples_local = (section_samples_global as f64 / resample_ratio) as usize;
             current_sample_local += section_samples_local;
 
             // Break if the section end is equal to the target sample
@@ -258,7 +258,7 @@ impl TempoMap {
                 // Calculate the resample ratio for the current section
                 let resample_ratio = (sample_rate as f64 * event.bpm())
                     / (src_info.sample_rate as f64 * src_info.bpm);
-                let local_samples = (section_end - current_sample) as f64 * resample_ratio;
+                let local_samples = (section_end - current_sample) as f64 / resample_ratio;
 
                 // Get the current local sample index for the section
                 let local_start_sample = current_local_sample;
