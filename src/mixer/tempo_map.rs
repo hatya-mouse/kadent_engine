@@ -158,6 +158,59 @@ impl TempoMap {
 
     // --- SECTION CALCULATION ---
 
+    /// Calculates the number of samples from the start of the audio data to the target sample in the global sample rate.
+    ///
+    /// # Parameters
+    /// - `target_sample`: The global sample index to convert.
+    /// - `src_info`: Information of the audio data that you want to resample.
+    pub(crate) fn global_to_local_sample(
+        &self,
+        data_start_sample: usize,
+        target_sample: usize,
+        src_info: &AudioDataInfo,
+    ) -> usize {
+        if target_sample <= data_start_sample {
+            return 0;
+        }
+
+        let sample_rate = match &self.playback_ctx {
+            Some(ctx) => ctx.sample_rate,
+            None => return 0,
+        };
+
+        // Calculate where to start iterating over the tempo events
+        let start_index = self
+            .events
+            .partition_point(|e| e.sample_offset <= data_start_sample);
+        let mut current_sample_global = data_start_sample;
+        let mut current_sample_local = 0;
+
+        for (i, event) in self.events.iter().skip(start_index).enumerate() {
+            let resample_ratio =
+                src_info.sample_rate as f64 * src_info.bpm / (sample_rate as f64 * event.bpm());
+            let next_event_sample = self
+                .events
+                .get(i + 1)
+                .map(|event| event.sample_offset())
+                .unwrap_or(usize::MAX);
+
+            // Calculate the number of samples in local sample rate in the section
+            let section_end_global = next_event_sample.min(target_sample);
+            let section_samples_global = section_end_global - current_sample_global;
+            let section_samples_local = (section_samples_global as f64 / resample_ratio) as usize;
+            current_sample_local += section_samples_local;
+
+            // Break if the section end is equal to the target sample
+            if section_end_global == target_sample {
+                break;
+            }
+
+            current_sample_global += section_samples_global;
+        }
+
+        current_sample_local
+    }
+
     /// Returns a vector of TempoSection that holds the tempo and the resample ratio in it.
     ///
     /// # Parameters
