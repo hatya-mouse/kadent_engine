@@ -46,6 +46,7 @@ impl AudioSource {
 fn load_from_path(path: &Path, range: Range<usize>) -> Option<Vec<f32>> {
     let mut reader = hound::WavReader::open(path).ok()?;
     let spec = reader.spec();
+    let channels = spec.channels as usize;
     // Seek to the first sample in the range
     reader.seek(range.start as u32).ok()?;
     // Then read the samples in the range
@@ -53,7 +54,7 @@ fn load_from_path(path: &Path, range: Range<usize>) -> Option<Vec<f32>> {
         SampleFormat::Float => Some(
             reader
                 .into_samples::<f32>()
-                .take(range.count())
+                .take(range.count() * channels)
                 .filter_map(Result::ok)
                 .collect(),
         ),
@@ -63,7 +64,7 @@ fn load_from_path(path: &Path, range: Range<usize>) -> Option<Vec<f32>> {
             Some(
                 reader
                     .into_samples::<i32>()
-                    .take(range.count())
+                    .take(range.count() * channels)
                     .filter_map(Result::ok)
                     .map(|s| s as f32 * inv_max_value)
                     .collect(),
