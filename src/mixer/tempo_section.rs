@@ -10,6 +10,7 @@ pub(crate) struct TempoSection {
     /// The relative end sample index of the section in the local sample rate.
     pub local_end_sample: usize,
     /// Resampling rate associated with this section, calculated by the following formula.
+    /// Multiply the local sample index by this value to get the sample index in the global sample rate.
     ///
     /// ```
     /// (Source Sample Rate * Source BPM) / (Target Sample Rate * Target BPM)
