@@ -50,4 +50,9 @@ impl AudioData {
     {
         self.samples.get(index)
     }
+
+    /// Returns the slice of the entire samples.
+    pub fn all_samples(&self) -> &[f32] {
+        &self.samples
+    }
 }
