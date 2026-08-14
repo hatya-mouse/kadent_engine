@@ -1,4 +1,5 @@
 use crate::{
+    THREAD_WAIT_DURATION,
     data_types::{MidiEvent, PlaybackContext},
     mixer::Mixer,
     thread::{
@@ -180,6 +181,8 @@ pub(super) fn audio_thread(
         while let Some(midi_event) = midi_cons.try_pop() {
             midi_sub_prod.try_push(midi_event).ok();
         }
+
+        std::thread::sleep(THREAD_WAIT_DURATION);
     }
 
     // Stream will be dropped here and the output callback should stop

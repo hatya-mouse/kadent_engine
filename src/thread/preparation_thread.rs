@@ -1,4 +1,5 @@
 use crate::{
+    THREAD_WAIT_DURATION,
     data_types::PlaybackContext,
     mixer::{Mixer, Project},
     thread::{AudioError, AudioResult},
@@ -36,6 +37,8 @@ pub(super) fn spawn_preparation_thread(
                 break;
             };
             mixer_guard.replace(prepared_mixer);
+
+            std::thread::sleep(THREAD_WAIT_DURATION);
         }
     });
 }

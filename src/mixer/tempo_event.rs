@@ -47,10 +47,7 @@ impl TempoEvent {
         self.bpm = bpm;
     }
 
-    pub fn set_sample_offset(&mut self, sample_offset: usize) {
-        self.sample_offset = sample_offset;
-    }
-
+    /// Updates the cached factors based on the given sample rate and the resolution.
     pub(super) fn update_factor(&mut self, sample_rate: u64, resolution: u64) {
         let scale = 1 << 32;
         self.samples_per_tick_fp = ((60u128 * sample_rate as u128 * scale)

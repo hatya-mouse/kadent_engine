@@ -1,13 +1,11 @@
 use crate::{
-    MAX_CHANNELS, data_types::PlaybackContext, mixer::TempoMap, track::audio_track::AudioRegion,
+    MAX_CHANNELS, THREAD_WAIT_DURATION, data_types::PlaybackContext, mixer::TempoMap,
+    track::audio_track::AudioRegion,
 };
 use ringbuf::traits::{Observer, Producer};
-use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
-    },
-    time::Duration,
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
 /// A small struct used to synchronize the playhead between the main thread and the render worker thread when seeking.
@@ -78,7 +76,7 @@ pub(super) fn spawn_render_worker(
                 // Advance the worker playhead by the buffer size
                 worker_playhead += playback_ctx.buffer_size;
             } else {
-                std::thread::sleep(Duration::from_millis(2));
+                std::thread::sleep(THREAD_WAIT_DURATION);
             }
         }
     })
