@@ -1,6 +1,7 @@
 pub fn resample_channels(
     source: &[f32],
     destination_buffer: &mut Vec<f32>,
+    dst_samples: usize,
     channels: usize,
     ratio: f64,
 ) {
@@ -10,8 +11,7 @@ pub fn resample_channels(
     let src_samples = source.len() / channels;
 
     // Calculate the length of the output array (interleaved) and fill it with zeros
-    let target_samples = (src_samples as f64 * ratio).ceil() as usize;
-    let full_len = target_samples * channels;
+    let full_len = dst_samples * channels;
     let inv_ratio = 1.0 / ratio;
     destination_buffer.resize(full_len, 0f32);
 

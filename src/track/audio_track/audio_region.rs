@@ -135,13 +135,7 @@ impl AudioRegion {
             if let Some(data) = self.audio_data.get(data_start..data_end) {
                 if data.is_empty() {
                     continue;
-                }
-
-                println!("self.info: {:?}, section: {:?}", self.info, section);
-                println!(
-                    "data_start: {}, data_end: {}, data: {:?}",
-                    data_start, data_end, data
-                );
+                };
 
                 // Resample the audio data based on the resample ratio calculated by the tempo map
                 if (section.resample_ratio - 1.0).abs() < 1e-6 {
@@ -151,6 +145,7 @@ impl AudioRegion {
                     resample_channels(
                         data,
                         &mut self.resampled_buffer,
+                        playback_ctx.buffer_size,
                         self.info.channels,
                         1.0 / section.resample_ratio,
                     );
