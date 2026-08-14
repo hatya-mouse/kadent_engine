@@ -117,8 +117,9 @@ impl Track for AudioTrack {
         self.init_local_buffers(playback_ctx);
         println!("Local buffers initialized");
         // Then prepare the graph
-        self.graph.prepare(tempo_map, playback_ctx)
+        let result = self.graph.prepare(tempo_map, playback_ctx);
         println!("Graph prepared");
+        result
     }
 
     fn process_to_local_buffer(
