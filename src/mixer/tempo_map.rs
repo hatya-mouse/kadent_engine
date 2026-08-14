@@ -240,7 +240,7 @@ impl TempoMap {
             .partition_point(|e| e.sample_offset <= start_sample)
             .saturating_sub(1);
         let mut current_sample = start_sample;
-        let mut current_local_sample = 0;
+        let mut current_local_sample = 0f64;
 
         // Loop over the tempo change events and create sections based on the tempo changes
         for (i, event) in self.events.iter().enumerate().skip(start_index) {
@@ -262,14 +262,14 @@ impl TempoMap {
 
                 // Get the current local sample index for the section
                 let local_start_sample = current_local_sample;
-                let local_end_sample = current_local_sample + local_samples as usize;
+                let local_end_sample = current_local_sample + local_samples;
                 current_local_sample = local_end_sample;
 
                 sections.push(TempoSection::new(
                     current_sample,
                     section_end,
-                    local_start_sample,
-                    local_end_sample,
+                    local_start_sample as usize,
+                    local_end_sample as usize,
                     resample_ratio,
                 ));
                 current_sample = section_end;
