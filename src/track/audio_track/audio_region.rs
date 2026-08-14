@@ -1,19 +1,22 @@
 use crate::{
     MAX_CHANNELS,
+    audio_data::{AudioData, AudioFilePool, AudioSource},
     data_types::{PlaybackContext, Ticks},
     mixer::TempoMap,
-    track::audio_track::{AudioDataInfo, AudioSource, resampler::resample_channels},
+    track::audio_track::resampler::resample_channels,
 };
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 /// Stores the raw audio source data.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct AudioRegion {
     pub data_source: AudioSource,
-    pub info: AudioDataInfo,
     pub start: Ticks,
     pub duration: Ticks,
     pub max_duration: Ticks,
+    /// The bpm associated with the audio data. This is used to change the tempo when the tempo of the project is different.
+    pub bpm: f64,
 
     /// Cached region start global sample index in the current playback context.
     #[serde(skip)]
@@ -23,7 +26,7 @@ pub struct AudioRegion {
     region_end_sample: usize,
     /// Cached raw audio data for the region.
     #[serde(skip)]
-    audio_data: Vec<f32>,
+    audio_data: Option<Arc<AudioData>>,
     /// Pre-allocated buffer for resampled audio data.
     #[serde(skip)]
     resampled_buffer: Vec<f32>,
@@ -32,56 +35,57 @@ pub struct AudioRegion {
 impl AudioRegion {
     // --- INITIALIZER ---
 
-    pub fn new(
-        data_source: AudioSource,
-        info: AudioDataInfo,
-        start: Ticks,
-        duration: Ticks,
-    ) -> Self {
+    pub fn new(data_source: AudioSource, start: Ticks, duration: Ticks, bpm: f64) -> Self {
         let max_duration = duration;
         Self {
             data_source,
-            info,
             start,
             duration,
             max_duration,
+            bpm,
             region_start_sample: 0,
             region_end_sample: 0,
-            audio_data: Vec::new(),
+            audio_data: None,
             resampled_buffer: Vec::new(),
         }
     }
 
-    pub fn zeros(info: AudioDataInfo, start: Ticks, duration: Ticks) -> Self {
+    pub fn zeros(start: Ticks, duration: Ticks, bpm: f64) -> Self {
         let max_duration = duration;
         let data_source = AudioSource::Zero;
         Self {
             data_source,
-            info,
             start,
             duration,
             max_duration,
+            bpm,
             region_start_sample: 0,
             region_end_sample: 0,
-            audio_data: Vec::new(),
+            audio_data: None,
             resampled_buffer: Vec::new(),
         }
     }
 
     // --- REGION PROCESSING ---
 
-    pub(super) fn prepare(&mut self, tempo_map: &TempoMap, playback_ctx: &PlaybackContext) {
+    pub(super) fn prepare(
+        &mut self,
+        audio_pool: &mut AudioFilePool,
+        tempo_map: &TempoMap,
+        playback_ctx: &PlaybackContext,
+    ) {
         self.region_start_sample = tempo_map.ticks_to_samples(self.start);
         self.region_end_sample = tempo_map.ticks_to_samples(self.end());
 
-        if let Some(data) = self.data_source.get_data_in(0..self.info.frames) {
-            self.audio_data = data;
-        } else {
-            self.audio_data.clear();
-        }
+        // Load the audio data from the audio pool
+        self.audio_data = audio_pool.get_or_load(&self.data_source);
 
-        self.resampled_buffer
-            .reserve(playback_ctx.buffer_size * self.info.channels);
+        if let Some(audio_data) = &self.audio_data {
+            self.resampled_buffer
+                .reserve(playback_ctx.buffer_size * audio_data.info.channels);
+        } else {
+            self.resampled_buffer.clear();
+        }
     }
 
     /// Reads and writes the audio data to the given buffer based on the current playhead position and the buffer size.
@@ -98,14 +102,14 @@ impl AudioRegion {
         tempo_map: &TempoMap,
         playback_ctx: &PlaybackContext,
     ) {
+        // Skip processing if the audio data is not loaded
+        let Some(audio_data) = &self.audio_data else {
+            return;
+        };
+
         // Skip processing if the buffer falls entirely outside the region's range
         let buffer_end = playhead + playback_ctx.buffer_size;
         if buffer_end <= self.region_start_sample || playhead >= self.region_end_sample {
-            return;
-        }
-
-        // Skip processing too if the audio source is zero
-        if matches!(self.data_source, AudioSource::Zero) {
             return;
         }
 
@@ -119,9 +123,14 @@ impl AudioRegion {
         let global_end = buffer_end.min(self.region_end_sample);
 
         // Get the tempo sections from the tempo map
-        let local_start =
-            tempo_map.global_to_local_sample(self.region_start_sample, global_start, &self.info);
-        let sections = tempo_map.get_sections_in_range(global_start, global_end, &self.info);
+        let local_start = tempo_map.global_to_local_sample(
+            self.region_start_sample,
+            global_start,
+            &audio_data.info,
+            self.bpm,
+        );
+        let sections =
+            tempo_map.get_sections_in_range(global_start, global_end, &audio_data.info, self.bpm);
         let mut current_dst_offset = (global_start - playhead) * MAX_CHANNELS;
 
         for section in sections {
@@ -131,9 +140,9 @@ impl AudioRegion {
 
             // Get the audio data that corresponds to the current section
             // Add margin at the end for smoother lerp
-            let data_start = (local_start + section.local_start_sample) * self.info.channels;
-            let data_end = (local_start + section.local_end_sample + 1) * self.info.channels;
-            if let Some(data) = self.audio_data.get(data_start..data_end) {
+            let data_start = (local_start + section.local_start_sample) * audio_data.info.channels;
+            let data_end = (local_start + section.local_end_sample + 1) * audio_data.info.channels;
+            if let Some(data) = audio_data.get_sample(data_start..data_end) {
                 if data.is_empty() {
                     continue;
                 };
@@ -147,7 +156,7 @@ impl AudioRegion {
                         data,
                         &mut self.resampled_buffer,
                         playback_ctx.buffer_size,
-                        self.info.channels,
+                        audio_data.info.channels,
                         section.resample_ratio,
                     );
                 };
@@ -157,7 +166,7 @@ impl AudioRegion {
                     add_samples_interleaved(
                         &self.resampled_buffer,
                         &mut buffer[current_dst_offset..],
-                        self.info.channels,
+                        audio_data.info.channels,
                         MAX_CHANNELS,
                     );
                 }

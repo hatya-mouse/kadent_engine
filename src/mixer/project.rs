@@ -1,4 +1,5 @@
 use crate::{
+    audio_data::AudioFilePool,
     data_types::{AudioContext, PlaybackContext, Ticks},
     mixer::{Mixer, TempoMap, track_id::TrackID},
     track::{Track, error::TrackError},
@@ -110,14 +111,18 @@ impl Project {
 
     /// Prepares the tracks in the mixer for the playback.
     /// Tracks that fail to prepare will just be skipped, and their errors will be returned.
-    pub fn prepare(mut self, playback_ctx: PlaybackContext) -> (Mixer, Vec<(TrackID, TrackError)>) {
+    pub fn prepare(
+        mut self,
+        audio_pool: &mut AudioFilePool,
+        playback_ctx: PlaybackContext,
+    ) -> (Mixer, Vec<(TrackID, TrackError)>) {
         // Prepare the tempo map first
         self.tempo_map.prepare(playback_ctx.clone());
 
         // Prepare the tracks one by one, collecting errors instead of aborting on the first one
         let mut errors = Vec::new();
         for (id, track) in self.tracks.iter_mut() {
-            if let Err(err) = track.prepare(&self.tempo_map, &playback_ctx) {
+            if let Err(err) = track.prepare(audio_pool, &self.tempo_map, &playback_ctx) {
                 errors.push((*id, err));
             }
         }

@@ -6,6 +6,7 @@ mod region_id;
 pub use region_id::RegionID;
 
 use crate::{
+    audio_data::AudioFilePool,
     data_types::{PlaybackContext, Ticks},
     graph::Graph,
     mixer::TempoMap,
@@ -46,6 +47,7 @@ pub trait Track: Send + Any {
     /// Prepares the track for processing.
     fn prepare(
         &mut self,
+        audio_pool: &mut AudioFilePool,
         tempo_map: &TempoMap,
         playback_ctx: &PlaybackContext,
     ) -> Result<(), TrackError>;

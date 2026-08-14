@@ -5,17 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AudioDataInfo {
-    /// The number of channels in the audio data.
-    pub channels: usize,
-    /// The number of samples in the audio data.
-    pub frames: usize,
-    /// The sample rate associated with the audio data.
-    pub sample_rate: u64,
-    /// The bpm associated with the audio data.
-    pub bpm: f64,
-}
+use crate::audio_data::{AudioData, AudioDataInfo};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub enum AudioSource {
@@ -28,13 +18,13 @@ pub enum AudioSource {
 }
 
 impl AudioSource {
-    /// Returns the full interleaved audio data for the given channel.
-    pub fn get_data(&self) -> Option<Vec<f32>> {
+    /// Returns the full interleaved audio data.
+    pub fn get_data(&self) -> Option<AudioData> {
         self.get_data_in(0..usize::MAX)
     }
 
-    /// Returns the interleaved audio data for the given channel.
-    pub fn get_data_in(&self, range: Range<usize>) -> Option<Vec<f32>> {
+    /// Returns the interleaved audio data in the range.
+    pub fn get_data_in(&self, range: Range<usize>) -> Option<AudioData> {
         match self {
             AudioSource::Original(path) => load_from_path(path, range),
             AudioSource::Modified(path) => load_from_path(path, range),
@@ -43,9 +33,10 @@ impl AudioSource {
     }
 }
 
-fn load_from_path(path: &Path, range: Range<usize>) -> Option<Vec<f32>> {
+fn load_from_path(path: &Path, range: Range<usize>) -> Option<AudioData> {
     let mut reader = hound::WavReader::open(path).ok()?;
     let spec = reader.spec();
+
     let channels = spec.channels as usize;
     let sample_count = range
         .end
@@ -55,26 +46,31 @@ fn load_from_path(path: &Path, range: Range<usize>) -> Option<Vec<f32>> {
     // Seek to the first sample in the range
     reader.seek(range.start as u32).ok()?;
 
+    // Create a audio data information
+    let info = AudioDataInfo {
+        channels,
+        frames: sample_count,
+        sample_rate: spec.sample_rate as u64,
+    };
+
     // Then read the samples in the range
-    match spec.sample_format {
-        SampleFormat::Float => Some(
-            reader
-                .into_samples::<f32>()
-                .take(sample_count)
-                .filter_map(Result::ok)
-                .collect(),
-        ),
+    let data = match spec.sample_format {
+        SampleFormat::Float => reader
+            .into_samples::<f32>()
+            .take(sample_count)
+            .filter_map(Result::ok)
+            .collect(),
         SampleFormat::Int => {
             let max_value = 2_i32.pow(spec.bits_per_sample as u32 - 1) as f32;
             let inv_max_value = 1.0 / max_value;
-            Some(
-                reader
-                    .into_samples::<i32>()
-                    .take(sample_count)
-                    .filter_map(Result::ok)
-                    .map(|s| s as f32 * inv_max_value)
-                    .collect(),
-            )
+            reader
+                .into_samples::<i32>()
+                .take(sample_count)
+                .filter_map(Result::ok)
+                .map(|s| s as f32 * inv_max_value)
+                .collect()
         }
-    }
+    };
+
+    Some(AudioData::new(data, info))
 }

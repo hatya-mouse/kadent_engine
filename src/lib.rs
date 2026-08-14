@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+pub mod audio_data;
 pub mod data_types;
 pub mod graph;
 pub mod mixer;

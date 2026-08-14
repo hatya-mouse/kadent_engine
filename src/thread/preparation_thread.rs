@@ -1,4 +1,5 @@
 use crate::{
+    audio_data::AudioFilePool,
     data_types::PlaybackContext,
     mixer::{Mixer, Project},
     thread::{AudioError, AudioResult},
@@ -44,6 +45,8 @@ pub(super) fn spawn_preparation_thread(
     result_tx: mpsc::Sender<Result<AudioResult, AudioError>>,
     mixer_arc: Arc<Mutex<Option<Mixer>>>,
 ) {
+    let mut audio_pool = AudioFilePool::default();
+
     let result_tx_clone = result_tx.clone();
     let result = std::thread::Builder::new()
         .name("Project Preparation Thread".to_string())
@@ -67,7 +70,8 @@ pub(super) fn spawn_preparation_thread(
 
                 match req {
                     PreparationThreadRequest::PrepareProject(new_project, playback_ctx) => {
-                        let (prepared_mixer, errors) = new_project.prepare(playback_ctx);
+                        let (prepared_mixer, errors) =
+                            new_project.prepare(&mut audio_pool, playback_ctx);
                         for (track_id, graph_error) in errors {
                             let _ = result_tx
                                 .send(Err(AudioError::TrackPrepareFailed(track_id, graph_error)));

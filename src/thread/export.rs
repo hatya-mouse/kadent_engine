@@ -1,4 +1,5 @@
 use crate::{
+    audio_data::AudioFilePool,
     data_types::PlaybackContext,
     mixer::Project,
     thread::{AudioError, AudioResult},
@@ -21,7 +22,8 @@ pub(super) fn spawn_export_thread(
             let channels = playback_ctx.channels;
 
             // Don't abort the export even if some track fails to prepare
-            let (mut mixer, errors) = project.prepare(playback_ctx);
+            let mut audio_pool = AudioFilePool::default();
+            let (mut mixer, errors) = project.prepare(&mut audio_pool, playback_ctx);
             for (track_id, err) in errors {
                 result_tx
                     .send(Err(AudioError::TrackPrepareFailed(track_id, err)))

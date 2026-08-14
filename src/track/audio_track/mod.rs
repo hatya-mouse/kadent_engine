@@ -1,9 +1,7 @@
-mod audio_data;
 mod audio_region;
 mod resampler;
 mod track_impl;
 
-pub use audio_data::{AudioDataInfo, AudioSource};
 pub use audio_region::AudioRegion;
 
 use crate::{

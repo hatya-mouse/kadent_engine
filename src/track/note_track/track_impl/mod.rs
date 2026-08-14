@@ -2,6 +2,7 @@ mod process;
 
 use crate::{
     MAX_CHANNELS,
+    audio_data::AudioFilePool,
     data_types::{PlaybackContext, Ticks},
     graph::Graph,
     mixer::TempoMap,
@@ -67,6 +68,7 @@ impl Track for NoteTrack {
 
     fn prepare(
         &mut self,
+        _audio_pool: &mut AudioFilePool,
         tempo_map: &TempoMap,
         playback_ctx: &PlaybackContext,
     ) -> Result<(), TrackError> {

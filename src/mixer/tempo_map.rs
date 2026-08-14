@@ -1,7 +1,7 @@
 use crate::{
+    audio_data::AudioDataInfo,
     data_types::{AudioContext, PlaybackContext, Ticks},
     mixer::{TempoEvent, TempoSection},
-    track::audio_track::AudioDataInfo,
 };
 
 #[derive(Clone, Default)]
@@ -168,6 +168,7 @@ impl TempoMap {
         data_start_sample: usize,
         target_sample: usize,
         src_info: &AudioDataInfo,
+        src_bpm: f64,
     ) -> usize {
         if target_sample <= data_start_sample {
             return 0;
@@ -188,7 +189,7 @@ impl TempoMap {
 
         for (i, event) in self.events.iter().enumerate().skip(start_index) {
             let resample_ratio =
-                (src_info.sample_rate as f64 * src_info.bpm) / (sample_rate as f64 * event.bpm());
+                (src_info.sample_rate as f64 * src_bpm) / (sample_rate as f64 * event.bpm());
             let next_event_sample = self
                 .events
                 .get(i + 1)
@@ -223,6 +224,7 @@ impl TempoMap {
         start_sample: usize,
         end_sample: usize,
         src_info: &AudioDataInfo,
+        src_bpm: f64,
     ) -> Vec<TempoSection> {
         let mut sections = Vec::new();
         if start_sample >= end_sample || self.events.is_empty() {
@@ -256,8 +258,8 @@ impl TempoMap {
 
             if current_sample < section_end {
                 // Calculate the resample ratio for the current section
-                let resample_ratio = (src_info.sample_rate as f64 * src_info.bpm)
-                    / (sample_rate as f64 * event.bpm());
+                let resample_ratio =
+                    (src_info.sample_rate as f64 * src_bpm) / (sample_rate as f64 * event.bpm());
                 let local_samples = (section_end - current_sample) as f64 * resample_ratio;
 
                 // Get the current local sample index for the section
