@@ -71,6 +71,7 @@ pub(super) fn spawn_render_worker(
                         &playback_ctx,
                     );
                 }
+                println!("buffer: {:?}", render_buf);
 
                 // Push the rendered buffer into the ring buffer
                 producer.push_slice(&render_buf);
