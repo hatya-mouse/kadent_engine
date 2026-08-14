@@ -108,6 +108,7 @@ impl Track for AudioTrack {
             sync_state,
             0,
         );
+        self.is_first_process = true;
 
         // Initialize the local buffers
         self.init_local_buffers(playback_ctx);
@@ -122,6 +123,13 @@ impl Track for AudioTrack {
         _tempo_map: &TempoMap,
         playback_ctx: &PlaybackContext,
     ) {
+        if self.is_first_process
+            && let Some(sync_state) = &self.sync_state
+        {
+            sync_state.request_seek(playhead);
+            self.is_first_process = false;
+        }
+
         if is_playing {
             let buffer_len = MAX_CHANNELS * playback_ctx.buffer_size;
             if let Some(ringbuf_cons) = &mut self.ringbuf_cons {

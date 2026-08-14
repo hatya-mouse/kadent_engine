@@ -36,6 +36,8 @@ pub struct AudioTrack {
     should_worker_stop: Option<Arc<AtomicBool>>,
     /// A sync state to synchronize the playhead position with the render worker thread.
     sync_state: Option<TrackSyncState>,
+    /// A flag to indicate whether the render this is the first call to process() function.
+    is_first_process: bool,
 
     // --- LOCAL BUFFER ---
     local_buffer: Vec<f32>,
@@ -58,6 +60,7 @@ impl AudioTrack {
             ringbuf_cons: None,
             should_worker_stop: None,
             sync_state: None,
+            is_first_process: true,
             local_buffer: Vec::new(),
             next_region_id: 0,
         }
@@ -113,6 +116,7 @@ impl Clone for AudioTrack {
             ringbuf_cons: None,
             should_worker_stop: None,
             sync_state: None,
+            is_first_process: self.is_first_process,
             local_buffer: self.local_buffer.clone(),
             next_region_id: self.next_region_id,
         }
