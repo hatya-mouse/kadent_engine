@@ -6,11 +6,12 @@ pub(super) use render_worker::TrackSyncState;
 use crate::{
     MAX_CHANNELS,
     data_types::{PlaybackContext, Ticks},
-    graph::{Graph, error::GraphError},
+    graph::Graph,
     mixer::TempoMap,
     track::{
         RegionID, Track,
         audio_track::{AudioTrack, track_impl::render_worker::spawn_render_worker},
+        error::TrackError,
     },
 };
 use ringbuf::traits::{Consumer, Split};
@@ -74,7 +75,7 @@ impl Track for AudioTrack {
         &mut self,
         tempo_map: &TempoMap,
         playback_ctx: &PlaybackContext,
-    ) -> Result<(), GraphError> {
+    ) -> Result<(), TrackError> {
         // Prepare the regions
         for region in self.regions.values_mut() {
             region.prepare(tempo_map, playback_ctx);
@@ -107,13 +108,16 @@ impl Track for AudioTrack {
             should_worker_stop,
             sync_state,
             0,
-        );
+        )
+        .map_err(|e| TrackError::ThreadSpawnFailed(e.to_string()))?;
         self.is_first_process = true;
 
         // Initialize the local buffers
         self.init_local_buffers(playback_ctx);
         // Then prepare the graph
-        self.graph.prepare(tempo_map, playback_ctx)
+        self.graph
+            .prepare(tempo_map, playback_ctx)
+            .map_err(TrackError::GraphError)
     }
 
     fn process_to_local_buffer(

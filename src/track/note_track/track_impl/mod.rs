@@ -3,10 +3,11 @@ mod process;
 use crate::{
     MAX_CHANNELS,
     data_types::{PlaybackContext, Ticks},
-    graph::{Graph, error::GraphError},
+    graph::Graph,
     mixer::TempoMap,
     track::{
         RegionID, Track,
+        error::TrackError,
         note_track::{NoteTrack, VoiceEvent},
     },
 };
@@ -68,7 +69,7 @@ impl Track for NoteTrack {
         &mut self,
         tempo_map: &TempoMap,
         playback_ctx: &PlaybackContext,
-    ) -> Result<(), GraphError> {
+    ) -> Result<(), TrackError> {
         // Pre-process the sequenced notes into processed notes
         self.pre_process_notes();
 
@@ -78,7 +79,9 @@ impl Track for NoteTrack {
         self.event_buffer = Vec::with_capacity(playback_ctx.buffer_size);
         self.local_buffer = vec![0.0; playback_ctx.buffer_size * MAX_CHANNELS];
         // Prepare the graph
-        self.graph.prepare(tempo_map, playback_ctx)
+        self.graph
+            .prepare(tempo_map, playback_ctx)
+            .map_err(TrackError::GraphError)
     }
 
     fn process_to_local_buffer(

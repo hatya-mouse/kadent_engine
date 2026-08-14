@@ -1,8 +1,7 @@
 use crate::{
     data_types::{AudioContext, PlaybackContext, Ticks},
-    graph::error::GraphError,
     mixer::{Mixer, TempoMap, track_id::TrackID},
-    track::Track,
+    track::{Track, error::TrackError},
 };
 use std::collections::HashMap;
 
@@ -111,7 +110,7 @@ impl Project {
 
     /// Prepares the tracks in the mixer for the playback.
     /// Tracks that fail to prepare will just be skipped, and their errors will be returned.
-    pub fn prepare(mut self, playback_ctx: PlaybackContext) -> (Mixer, Vec<(TrackID, GraphError)>) {
+    pub fn prepare(mut self, playback_ctx: PlaybackContext) -> (Mixer, Vec<(TrackID, TrackError)>) {
         // Prepare the tempo map first
         self.tempo_map.prepare(playback_ctx.clone());
 

@@ -45,39 +45,42 @@ pub(super) fn spawn_render_worker(
     should_terminate: Arc<AtomicBool>,
     sync_state: TrackSyncState,
     mut worker_playhead: usize,
-) -> std::thread::JoinHandle<()> {
-    std::thread::spawn(move || {
-        let buffer_len = MAX_CHANNELS * playback_ctx.buffer_size;
-        let mut render_buf = vec![0.0; buffer_len];
+) -> std::io::Result<()> {
+    std::thread::Builder::new()
+        .name("Audio Track Render Worker".to_string())
+        .spawn(move || {
+            let buffer_len = MAX_CHANNELS * playback_ctx.buffer_size;
+            let mut render_buf = vec![0.0; buffer_len];
 
-        // Keep render worker running until the is_running flag is set to false
-        while !should_terminate.load(Ordering::Relaxed) {
-            // Synchronize the worker playhead if a seek has been requested
-            if let Some(new_playhead) = sync_state.consume_seek() {
-                worker_playhead = new_playhead;
-            }
-
-            if producer.vacant_len() >= buffer_len {
-                // Clear the render buffer before rendering
-                render_buf.fill(0.0);
-                // Render each region into the render buffer
-                for region in regions.iter_mut() {
-                    region.render_buffer(
-                        worker_playhead,
-                        &mut render_buf,
-                        &tempo_map,
-                        &playback_ctx,
-                    );
+            // Keep render worker running until the is_running flag is set to false
+            while !should_terminate.load(Ordering::Relaxed) {
+                // Synchronize the worker playhead if a seek has been requested
+                if let Some(new_playhead) = sync_state.consume_seek() {
+                    worker_playhead = new_playhead;
                 }
 
-                // Push the rendered buffer into the ring buffer
-                producer.push_slice(&render_buf);
+                if producer.vacant_len() >= buffer_len {
+                    // Clear the render buffer before rendering
+                    render_buf.fill(0.0);
+                    // Render each region into the render buffer
+                    for region in regions.iter_mut() {
+                        region.render_buffer(
+                            worker_playhead,
+                            &mut render_buf,
+                            &tempo_map,
+                            &playback_ctx,
+                        );
+                    }
 
-                // Advance the worker playhead by the buffer size
-                worker_playhead += playback_ctx.buffer_size;
-            } else {
-                std::thread::sleep(THREAD_WAIT_DURATION);
+                    // Push the rendered buffer into the ring buffer
+                    producer.push_slice(&render_buf);
+
+                    // Advance the worker playhead by the buffer size
+                    worker_playhead += playback_ctx.buffer_size;
+                } else {
+                    std::thread::sleep(THREAD_WAIT_DURATION);
+                }
             }
-        }
-    })
+        })
+        .map(|_| ())
 }

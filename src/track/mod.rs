@@ -1,4 +1,5 @@
 pub mod audio_track;
+pub mod error;
 pub mod note_track;
 mod region_id;
 
@@ -6,8 +7,9 @@ pub use region_id::RegionID;
 
 use crate::{
     data_types::{PlaybackContext, Ticks},
-    graph::{Graph, error::GraphError},
+    graph::Graph,
     mixer::TempoMap,
+    track::error::TrackError,
 };
 use std::any::Any;
 
@@ -46,7 +48,7 @@ pub trait Track: Send + Any {
         &mut self,
         tempo_map: &TempoMap,
         playback_ctx: &PlaybackContext,
-    ) -> Result<(), GraphError>;
+    ) -> Result<(), TrackError>;
 
     /// Processes the track and writes the processed output to the local buffer.
     fn process_to_local_buffer(

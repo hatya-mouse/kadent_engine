@@ -1,7 +1,7 @@
 use crate::{
     data_types::{PlaybackContext, Ticks},
-    graph::error::GraphError,
     mixer::{Project, TrackID},
+    track::error::TrackError,
 };
 use cpal::Device;
 
@@ -25,7 +25,9 @@ pub enum AudioResult {
 
 pub enum AudioError {
     /// The track preparation failed for a specific track because of an error in the node graph.
-    TrackPrepareFailed(TrackID, GraphError),
+    TrackPrepareFailed(TrackID, TrackError),
+    /// A thread could not be spawned to an OS error.
+    ThreadSpawnFailed(String),
     /// CPAL stream error has occured during playback.
     PlayStreamError(cpal::Error),
     /// An audio command failed, which means that it is likely that the audio thread is frozen or crashed.

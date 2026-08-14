@@ -40,17 +40,28 @@ impl AudioThread {
         let (vu_producer, vu_consumer) = HeapRb::<f32>::new(playback_ctx.channels * 2).split();
 
         // --- MAIN AUDIO THREAD ---
-        thread::spawn(move || {
-            audio_thread::audio_thread(
-                audio_command_rx,
-                result_tx,
-                midi_consumer,
-                vu_producer,
-                playhead_clone,
-                playhead_ticks_clone,
-                playback_ctx,
-            );
-        });
+        let result_tx_clone = result_tx.clone();
+        let result = thread::Builder::new()
+            .name("Audio Thread".to_string())
+            .spawn(move || {
+                audio_thread::audio_thread(
+                    audio_command_rx,
+                    result_tx,
+                    midi_consumer,
+                    vu_producer,
+                    playhead_clone,
+                    playhead_ticks_clone,
+                    playback_ctx,
+                );
+            });
+        match result {
+            Ok(_) => (),
+            Err(e) => {
+                result_tx_clone
+                    .send(Err(AudioError::ThreadSpawnFailed(e.to_string())))
+                    .ok();
+            }
+        }
 
         (
             AudioThreadHandle {
