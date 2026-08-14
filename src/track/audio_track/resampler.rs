@@ -17,10 +17,10 @@ pub fn resample_channels(
     // Calculate the length of the output array (interleaved) and fill it with zeros
     let target_samples = (src_samples as f64 * ratio).ceil() as usize;
     let full_len = target_samples * channels;
-    let mut output = vec![0f32; full_len];
+    *destination_buffer = vec![0f32; full_len];
 
     // Loop through each sample in the target array
-    output
+    destination_buffer
         .par_chunks_exact_mut(channels)
         .enumerate()
         .for_each(|(sample, sample_buffer)| {
@@ -31,9 +31,9 @@ pub fn resample_channels(
             if index + 1 < src_samples {
                 let gradient = (src_pos - index as f64) as f32;
 
-                // Get numbers to interpolate between
+                // Get indices to interpolate between
                 let src_index_0 = index * channels;
-                let src_index_1 = (index + 1) * channels;
+                let src_index_1 = src_index_0 + channels;
 
                 for channel in 0..channels {
                     let src_0 = source[src_index_0 + channel];
@@ -42,6 +42,4 @@ pub fn resample_channels(
                 }
             }
         });
-
-    destination_buffer.extend(output);
 }

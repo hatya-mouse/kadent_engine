@@ -139,10 +139,8 @@ impl AudioRegion {
 
                 println!("self.info: {:?}, section: {:?}", self.info, section);
                 println!(
-                    "data_start: {}, data_end: {}, data.len(): {}",
-                    data_start,
-                    data_end,
-                    data.len()
+                    "data_start: {}, data_end: {}, data: {:?}",
+                    data_start, data_end, data
                 );
 
                 // Resample the audio data based on the resample ratio calculated by the tempo map
@@ -157,8 +155,6 @@ impl AudioRegion {
                         1.0 / section.resample_ratio,
                     );
                 };
-
-                println!("resampled data: {:?}", self.resampled_buffer);
 
                 // Interleave and add the resampled data to the buffer, which must have MAX_CHANNELS channels
                 if current_dst_offset < buffer.len() {
