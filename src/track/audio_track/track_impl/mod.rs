@@ -127,7 +127,7 @@ impl Track for AudioTrack {
             if let Some(ringbuf_cons) = &mut self.ringbuf_cons {
                 // Pop the rendered audio from the ring buffer into the local buffer
                 let popped = ringbuf_cons.pop_slice(&mut self.graph_input_buffer[..buffer_len]);
-                println!("popped slice: {}", popped);
+                println!("popped slice: {:?}", self.graph_input_buffer[..popped]);
 
                 // Fill the rest of the local buffer with zeros if the ring buffer didn't have enough data
                 if popped < buffer_len {
