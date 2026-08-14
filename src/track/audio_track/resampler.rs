@@ -21,7 +21,7 @@ pub fn resample_channels(
         .enumerate()
         .for_each(|(sample, sample_buffer)| {
             // Calculate the corresponding position in the source array
-            let src_pos = (sample as f64 * inv_ratio).ceil();
+            let src_pos = (sample as f64 * inv_ratio).round();
             let index = src_pos as usize;
 
             if index + 1 < src_samples {
