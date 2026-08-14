@@ -98,6 +98,8 @@ impl AudioRegion {
         let global_end = buffer_end.min(self.region_end_sample);
 
         // Get the tempo sections from the tempo map
+        let local_start =
+            tempo_map.global_to_local_sample(self.region_start_sample, global_start, &self.info);
         let sections = tempo_map.get_sections_in_range(global_start, global_end, &self.info);
         let mut current_dst_offset = (global_start - playhead) * MAX_CHANNELS;
 
@@ -108,8 +110,8 @@ impl AudioRegion {
             println!("Processing the section: {:?}", section);
 
             // Get the audio data that corresponds to the current section
-            let data_start = section.local_start_sample * self.info.channels;
-            let data_end = section.local_end_sample * self.info.channels;
+            let data_start = (local_start + section.local_start_sample) * self.info.channels;
+            let data_end = (local_start + section.local_end_sample) * self.info.channels;
             if let Some(data) = self.data_source.get_data_in(data_start..data_end) {
                 if data.is_empty() {
                     continue;
