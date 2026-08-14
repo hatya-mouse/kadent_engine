@@ -181,7 +181,8 @@ impl TempoMap {
         // Calculate where to start iterating over the tempo events
         let start_index = self
             .events
-            .partition_point(|e| e.sample_offset <= data_start_sample);
+            .partition_point(|e| e.sample_offset <= data_start_sample)
+            .saturating_sub(1);
         let mut current_sample_global = data_start_sample;
         let mut current_sample_local = 0;
 
