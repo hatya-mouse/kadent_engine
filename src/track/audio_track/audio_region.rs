@@ -148,7 +148,7 @@ impl AudioRegion {
                         &mut self.resampled_buffer,
                         playback_ctx.buffer_size,
                         self.info.channels,
-                        1.0 / section.resample_ratio,
+                        section.resample_ratio,
                     );
                 };
 

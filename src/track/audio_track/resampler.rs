@@ -12,7 +12,6 @@ pub fn resample_channels(
 
     // Calculate the length of the output array (interleaved) and fill it with zeros
     let full_len = dst_samples * channels;
-    let inv_ratio = 1.0 / ratio;
     destination_buffer.resize(full_len, 0f32);
 
     // Loop through each sample in the target array
@@ -21,7 +20,7 @@ pub fn resample_channels(
         .enumerate()
         .for_each(|(sample, sample_buffer)| {
             // Calculate the corresponding position in the source array
-            let src_pos = (sample as f64 * inv_ratio).round();
+            let src_pos = (sample as f64 * ratio).round();
             let index = src_pos as usize;
 
             if index + 1 < src_samples {
