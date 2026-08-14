@@ -135,7 +135,7 @@ impl AudioRegion {
             global_start,
             &audio_data.info,
             self.bpm,
-        );
+        ) + self.start_offset;
         let sections =
             tempo_map.get_sections_in_range(global_start, global_end, &audio_data.info, self.bpm);
         let mut current_dst_offset = (global_start - playhead) * MAX_CHANNELS;
