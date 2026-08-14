@@ -1,8 +1,3 @@
-use rayon::{
-    iter::{IndexedParallelIterator, ParallelIterator},
-    slice::ParallelSliceMut,
-};
-
 pub fn resample_channels(
     source: &[f32],
     destination_buffer: &mut Vec<f32>,
@@ -18,11 +13,11 @@ pub fn resample_channels(
     let target_samples = (src_samples as f64 * ratio).ceil() as usize;
     let full_len = target_samples * channels;
     let inv_ratio = 1.0 / ratio;
-    *destination_buffer = vec![0f32; full_len];
+    destination_buffer.resize(full_len, 0f32);
 
     // Loop through each sample in the target array
     destination_buffer
-        .par_chunks_exact_mut(channels)
+        .chunks_mut(channels)
         .enumerate()
         .for_each(|(sample, sample_buffer)| {
             // Calculate the corresponding position in the source array
