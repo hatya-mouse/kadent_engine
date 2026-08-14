@@ -151,6 +151,8 @@ impl AudioRegion {
                     );
                 };
 
+                println!("data: {:?}", self.resampled_buffer);
+
                 // Interleave and add the resampled data to the buffer, which must have MAX_CHANNELS channels
                 if current_dst_offset < buffer.len() {
                     add_samples_interleaved(
