@@ -120,8 +120,8 @@ impl AudioRegion {
             }
 
             // Get the audio data that corresponds to the current section
-            let data_start = local_start + section.local_start_sample;
-            let data_end = local_start + section.local_end_sample;
+            let data_start = (local_start + section.local_start_sample) * self.info.channels;
+            let data_end = (local_start + section.local_end_sample) * self.info.channels;
             if let Some(data) = self.audio_data.get(data_start..data_end) {
                 if data.is_empty() {
                     continue;
