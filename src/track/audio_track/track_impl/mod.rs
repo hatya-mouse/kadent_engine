@@ -75,12 +75,10 @@ impl Track for AudioTrack {
         tempo_map: &TempoMap,
         playback_ctx: &PlaybackContext,
     ) -> Result<(), GraphError> {
-        println!("Preparation started");
         // Prepare the regions
         for region in self.regions.values_mut() {
             region.prepare(tempo_map);
         }
-        println!("Regions prepared");
 
         // Stop the old render worker by setting the is_running flag to false
         if let Some(is_worker_running) = &self.is_worker_running {
@@ -111,15 +109,10 @@ impl Track for AudioTrack {
             0,
         );
 
-        println!("Render worker spawned");
-
         // Initialize the local buffers
         self.init_local_buffers(playback_ctx);
-        println!("Local buffers initialized");
         // Then prepare the graph
-        let result = self.graph.prepare(tempo_map, playback_ctx);
-        println!("Graph prepared");
-        result
+        self.graph.prepare(tempo_map, playback_ctx)
     }
 
     fn process_to_local_buffer(
