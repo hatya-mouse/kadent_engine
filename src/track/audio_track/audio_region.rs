@@ -137,6 +137,8 @@ impl AudioRegion {
                     continue;
                 }
 
+                println!("self.info: {:?}, section: {:?}", self.info, section);
+
                 // Resample the audio data based on the resample ratio calculated by the tempo map
                 self.resampled_buffer.clear();
                 if (section.resample_ratio - 1.0).abs() < 1e-6 {
