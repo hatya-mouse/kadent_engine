@@ -25,6 +25,19 @@ pub struct AudioData {
     pub info: AudioDataInfo,
 }
 
+impl Default for AudioData {
+    fn default() -> Self {
+        Self {
+            samples: Vec::new(),
+            info: AudioDataInfo {
+                channels: 0,
+                frames: 0,
+                sample_rate: 0,
+            },
+        }
+    }
+}
+
 impl AudioData {
     pub fn new(samples: Vec<f32>, info: AudioDataInfo) -> Self {
         Self { samples, info }
