@@ -71,7 +71,7 @@ pub(super) fn add_samples_interleaved(
     src_channels: usize,
     dst_channels: usize,
 ) {
-    let active_channels = src_channels.min(src_channels);
+    let active_channels = src_channels.min(dst_channels);
 
     // Finally add the output data to the output buffer while interleaving the channels
     for (dst_frame, src_frame) in destination

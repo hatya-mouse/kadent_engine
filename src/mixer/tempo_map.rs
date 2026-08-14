@@ -186,7 +186,7 @@ impl TempoMap {
         let mut current_sample_global = data_start_sample;
         let mut current_sample_local = 0;
 
-        for (i, event) in self.events.iter().skip(start_index).enumerate() {
+        for (i, event) in self.events.iter().enumerate().skip(start_index) {
             let resample_ratio =
                 src_info.sample_rate as f64 * src_info.bpm / (sample_rate as f64 * event.bpm());
             let next_event_sample = self
@@ -243,7 +243,7 @@ impl TempoMap {
         let mut current_local_sample = 0;
 
         // Loop over the tempo change events and create sections based on the tempo changes
-        for (i, event) in self.events.iter().skip(start_index).enumerate() {
+        for (i, event) in self.events.iter().enumerate().skip(start_index) {
             let next_event_sample = self
                 .events
                 .get(i + 1)
