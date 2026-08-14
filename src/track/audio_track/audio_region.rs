@@ -117,7 +117,7 @@ impl AudioRegion {
                     continue;
                 }
 
-                println!("Got data: {:?}", data.len());
+                println!("Got data: {:?}", data);
                 // Resample the audio data based on the resample ratio calculated by the tempo map
                 let resampled = if (section.resample_ratio - 1.0).abs() < 1e-6 {
                     data.to_vec()
