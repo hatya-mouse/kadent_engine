@@ -34,11 +34,6 @@ pub fn resample_channels(
                     let src_1 = source[src_index_1 + channel];
                     sample_buffer[channel] = src_0 + (src_1 - src_0) * gradient;
                 }
-            } else if index < src_samples {
-                // When the index is at the last sample, just copy the value without interpolation
-                let src_index = index * channels;
-                sample_buffer[..channels]
-                    .clone_from_slice(&source[src_index..src_index + channels]);
             } else {
                 // If the index is out of bounds, write the last sample
                 let last_index = (src_samples - 1) * channels;
