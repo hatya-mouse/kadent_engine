@@ -15,12 +15,11 @@ pub fn resample_channels(
     destination_buffer.resize(full_len, 0f32);
 
     // Loop through each sample in the target array
+    let mut src_pos = 0.0;
     destination_buffer
         .chunks_mut(channels)
-        .enumerate()
-        .for_each(|(sample, sample_buffer)| {
+        .for_each(|sample_buffer| {
             // Calculate the corresponding position in the source array
-            let src_pos = (sample as f64 * ratio).round();
             let index = src_pos as usize;
 
             if index + 1 < src_samples {
@@ -46,5 +45,8 @@ pub fn resample_channels(
                 sample_buffer[..channels]
                     .clone_from_slice(&source[last_index..last_index + channels]);
             }
+
+            // Advance the source position by the resampling ratio
+            src_pos += ratio;
         });
 }
