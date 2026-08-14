@@ -86,7 +86,7 @@ impl Track for AudioTrack {
         }
 
         // Create a new ring buffer and is_running flag for the new render worker
-        let ringbuf_size = playback_ctx.buffer_size * MAX_CHANNELS * 2;
+        let ringbuf_size = playback_ctx.buffer_size * MAX_CHANNELS;
         let (prod, cons) = ringbuf::HeapRb::<f32>::new(ringbuf_size).split();
         self.ringbuf_cons = Some(cons);
 
