@@ -77,7 +77,7 @@ impl Track for AudioTrack {
     ) -> Result<(), GraphError> {
         // Prepare the regions
         for region in self.regions.values_mut() {
-            region.prepare(tempo_map);
+            region.prepare(tempo_map, playback_ctx);
         }
 
         // Stop the old render worker by setting the is_running flag to false

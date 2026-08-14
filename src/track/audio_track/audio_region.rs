@@ -2,10 +2,7 @@ use crate::{
     MAX_CHANNELS,
     data_types::{PlaybackContext, Ticks},
     mixer::TempoMap,
-    track::audio_track::{
-        AudioDataInfo, AudioSource, resampler::resample_channels,
-        tempo_strech::add_samples_interleaved,
-    },
+    track::audio_track::{AudioDataInfo, AudioSource, resampler::resample_channels},
 };
 use serde::{Deserialize, Serialize};
 
@@ -27,6 +24,9 @@ pub struct AudioRegion {
     /// Cached raw audio data for the region.
     #[serde(skip)]
     audio_data: Vec<f32>,
+    /// Pre-allocated buffer for resampled audio data.
+    #[serde(skip)]
+    resampled_buffer: Vec<f32>,
 }
 
 impl AudioRegion {
@@ -48,6 +48,7 @@ impl AudioRegion {
             region_start_sample: 0,
             region_end_sample: 0,
             audio_data: Vec::new(),
+            resampled_buffer: Vec::new(),
         }
     }
 
@@ -63,12 +64,13 @@ impl AudioRegion {
             region_start_sample: 0,
             region_end_sample: 0,
             audio_data: Vec::new(),
+            resampled_buffer: Vec::new(),
         }
     }
 
     // --- REGION PROCESSING ---
 
-    pub(super) fn prepare(&mut self, tempo_map: &TempoMap) {
+    pub(super) fn prepare(&mut self, tempo_map: &TempoMap, playback_ctx: &PlaybackContext) {
         self.region_start_sample = tempo_map.ticks_to_samples(self.start);
         self.region_end_sample = tempo_map.ticks_to_samples(self.end());
 
@@ -77,6 +79,9 @@ impl AudioRegion {
         } else {
             self.audio_data.clear();
         }
+
+        self.resampled_buffer
+            .reserve(playback_ctx.buffer_size * self.info.channels);
     }
 
     /// Reads and writes the audio data to the given buffer based on the current playhead position and the buffer size.
@@ -87,7 +92,7 @@ impl AudioRegion {
     /// - `tempo_map`: The tempo map for the current playback context.
     /// - `playback_ctx`: The playback context containing the sample rate and other playback settings.
     pub(super) fn render_buffer(
-        &self,
+        &mut self,
         playhead: usize,
         buffer: &mut [f32],
         tempo_map: &TempoMap,
@@ -96,6 +101,11 @@ impl AudioRegion {
         // Skip processing if the buffer falls entirely outside the region's range
         let buffer_end = playhead + playback_ctx.buffer_size;
         if buffer_end <= self.region_start_sample || playhead >= self.region_end_sample {
+            return;
+        }
+
+        // Skip processing too if the audio source is zero
+        if matches!(self.data_source, AudioSource::Zero) {
             return;
         }
 
@@ -128,16 +138,22 @@ impl AudioRegion {
                 }
 
                 // Resample the audio data based on the resample ratio calculated by the tempo map
-                let resampled = if (section.resample_ratio - 1.0).abs() < 1e-6 {
-                    data
+                self.resampled_buffer.clear();
+                if (section.resample_ratio - 1.0).abs() < 1e-6 {
+                    self.resampled_buffer.extend_from_slice(data);
                 } else {
-                    &resample_channels(data, self.info.channels, section.resample_ratio)
+                    resample_channels(
+                        data,
+                        &mut self.resampled_buffer,
+                        self.info.channels,
+                        section.resample_ratio,
+                    );
                 };
 
                 // Interleave and add the resampled data to the buffer, which must have MAX_CHANNELS channels
                 if current_dst_offset < buffer.len() {
                     add_samples_interleaved(
-                        resampled,
+                        &self.resampled_buffer,
                         &mut buffer[current_dst_offset..],
                         self.info.channels,
                         MAX_CHANNELS,
@@ -157,5 +173,27 @@ impl AudioRegion {
     #[inline]
     fn end(&self) -> Ticks {
         self.start + self.duration
+    }
+}
+
+/// Add the samples from the source buffer to the destination buffer while interleaving the channels
+/// with the given number of source and destination channels.
+pub(super) fn add_samples_interleaved(
+    source: &[f32],
+    destination: &mut [f32],
+    src_channels: usize,
+    dst_channels: usize,
+) {
+    let active_channels = src_channels.min(dst_channels);
+
+    // Finally add the output data to the output buffer while interleaving the channels
+    for (dst_frame, src_frame) in destination
+        .chunks_exact_mut(dst_channels)
+        .zip(source.chunks_exact(src_channels))
+    {
+        for ch in 0..active_channels {
+            // Add the sample value
+            dst_frame[ch] += src_frame[ch];
+        }
     }
 }

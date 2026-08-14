@@ -39,7 +39,7 @@ impl TrackSyncState {
 
 pub(super) fn spawn_render_worker(
     mut producer: ringbuf::HeapProd<f32>,
-    regions: Vec<AudioRegion>,
+    mut regions: Vec<AudioRegion>,
     tempo_map: TempoMap,
     playback_ctx: PlaybackContext,
     is_running: Arc<AtomicBool>,
@@ -61,7 +61,7 @@ pub(super) fn spawn_render_worker(
                 // Clear the render buffer before rendering
                 render_buf.fill(0.0);
                 // Render each region into the render buffer
-                for region in &regions {
+                for region in regions.iter_mut() {
                     region.render_buffer(
                         worker_playhead,
                         &mut render_buf,

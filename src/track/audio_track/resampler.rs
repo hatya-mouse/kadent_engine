@@ -3,9 +3,14 @@ use rayon::{
     slice::ParallelSliceMut,
 };
 
-pub fn resample_channels(source: &[f32], channels: usize, ratio: f64) -> Vec<f32> {
+pub fn resample_channels(
+    source: &[f32],
+    destination_buffer: &mut Vec<f32>,
+    channels: usize,
+    ratio: f64,
+) {
     if source.is_empty() || channels == 0 || ratio == 0.0 {
-        return Vec::new();
+        return;
     }
     let src_samples = source.len() / channels;
 
@@ -38,5 +43,5 @@ pub fn resample_channels(source: &[f32], channels: usize, ratio: f64) -> Vec<f32
             }
         });
 
-    output
+    destination_buffer.extend(output);
 }

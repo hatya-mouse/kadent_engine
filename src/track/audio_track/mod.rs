@@ -1,7 +1,6 @@
 mod audio_data;
 mod audio_region;
 mod resampler;
-mod tempo_strech;
 mod track_impl;
 
 pub use audio_data::{AudioDataInfo, AudioSource};
