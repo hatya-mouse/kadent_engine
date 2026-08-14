@@ -130,8 +130,9 @@ impl AudioRegion {
             }
 
             // Get the audio data that corresponds to the current section
+            // Add margin at the end for smoother lerp
             let data_start = (local_start + section.local_start_sample) * self.info.channels;
-            let data_end = (local_start + section.local_end_sample) * self.info.channels;
+            let data_end = (local_start + section.local_end_sample + 1) * self.info.channels;
             if let Some(data) = self.audio_data.get(data_start..data_end) {
                 if data.is_empty() {
                     continue;
@@ -150,8 +151,6 @@ impl AudioRegion {
                         1.0 / section.resample_ratio,
                     );
                 };
-
-                println!("data: {:?}", self.resampled_buffer);
 
                 // Interleave and add the resampled data to the buffer, which must have MAX_CHANNELS channels
                 if current_dst_offset < buffer.len() {
