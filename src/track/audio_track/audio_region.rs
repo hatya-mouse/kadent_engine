@@ -122,10 +122,15 @@ impl AudioRegion {
                 } else {
                     resample_channels(&data, self.info.channels, section.resample_ratio)
                 };
-                println!("resampled: {:?}", resampled);
 
                 // Interleave and add the resampled data to the buffer, which must have MAX_CHANNELS channels
+                println!(
+                    "current_dst_offset: {}, buffer.len(): {}",
+                    current_dst_offset,
+                    buffer.len()
+                );
                 if current_dst_offset < buffer.len() {
+                    println!("Adding samples");
                     add_samples_interleaved(
                         &resampled,
                         &mut buffer[current_dst_offset..],
