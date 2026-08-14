@@ -144,8 +144,8 @@ impl AudioRegion {
                 );
 
                 // Resample the audio data based on the resample ratio calculated by the tempo map
-                self.resampled_buffer.clear();
                 if (section.resample_ratio - 1.0).abs() < 1e-6 {
+                    self.resampled_buffer.clear();
                     self.resampled_buffer.extend_from_slice(data);
                 } else {
                     resample_channels(
