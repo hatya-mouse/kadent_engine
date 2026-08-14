@@ -105,11 +105,17 @@ impl AudioRegion {
             if section.local_start_sample >= section.local_end_sample {
                 continue;
             }
+            println!("Processing the section: {:?}", section);
 
             // Get the audio data that corresponds to the current section
             let data_start = section.local_start_sample * self.info.channels;
             let data_end = section.local_end_sample * self.info.channels;
             if let Some(data) = self.data_source.get_data_in(data_start..data_end) {
+                if data.is_empty() {
+                    continue;
+                }
+
+                println!("Got data: {:?}", data.len());
                 // Resample the audio data based on the resample ratio calculated by the tempo map
                 let resampled = if (section.resample_ratio - 1.0).abs() < 1e-6 {
                     data.to_vec()

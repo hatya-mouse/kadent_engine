@@ -1,4 +1,5 @@
 /// Represents a single section which is separated by tempo changes.
+#[derive(Debug, Clone)]
 pub(crate) struct TempoSection {
     /// The start sample index of the section in the global sample rate and tempo.
     pub global_start_sample: usize,
