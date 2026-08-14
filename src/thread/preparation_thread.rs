@@ -46,7 +46,7 @@ pub(super) fn spawn_preparation_thread(
 ) {
     let result_tx_clone = result_tx.clone();
     let result = std::thread::Builder::new()
-        .name("Spawn Preparation Thread".to_string())
+        .name("Project Preparation Thread".to_string())
         .spawn(move || {
             loop {
                 let req = {
