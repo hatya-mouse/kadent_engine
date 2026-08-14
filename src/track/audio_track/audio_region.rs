@@ -107,10 +107,6 @@ impl AudioRegion {
             if section.local_start_sample >= section.local_end_sample {
                 continue;
             }
-            println!(
-                "Processing the section: {:?}, local_start: {}",
-                section, local_start
-            );
 
             // Get the audio data that corresponds to the current section
             let data_start = (local_start + section.local_start_sample) * self.info.channels;
@@ -119,14 +115,14 @@ impl AudioRegion {
                 if data.is_empty() {
                     continue;
                 }
-                println!("data: {:?}", data);
 
                 // Resample the audio data based on the resample ratio calculated by the tempo map
                 let resampled = if (section.resample_ratio - 1.0).abs() < 1e-6 {
-                    data.to_vec()
+                    data
                 } else {
                     resample_channels(&data, self.info.channels, section.resample_ratio)
                 };
+                println!("resampled: {:?}", resampled);
 
                 // Interleave and add the resampled data to the buffer, which must have MAX_CHANNELS channels
                 if current_dst_offset < buffer.len() {
