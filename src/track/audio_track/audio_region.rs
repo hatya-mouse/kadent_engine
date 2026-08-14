@@ -24,6 +24,9 @@ pub struct AudioRegion {
     /// Cached region end global sample index in the current playback context.
     #[serde(skip)]
     region_end_sample: usize,
+    /// Cached raw audio data for the region.
+    #[serde(skip)]
+    audio_data: Vec<f32>,
 }
 
 impl AudioRegion {
@@ -44,6 +47,7 @@ impl AudioRegion {
             max_duration,
             region_start_sample: 0,
             region_end_sample: 0,
+            audio_data: Vec::new(),
         }
     }
 
@@ -58,6 +62,7 @@ impl AudioRegion {
             max_duration,
             region_start_sample: 0,
             region_end_sample: 0,
+            audio_data: Vec::new(),
         }
     }
 
@@ -66,6 +71,12 @@ impl AudioRegion {
     pub(super) fn prepare(&mut self, tempo_map: &TempoMap) {
         self.region_start_sample = tempo_map.ticks_to_samples(self.start);
         self.region_end_sample = tempo_map.ticks_to_samples(self.end());
+
+        if let Some(data) = self.data_source.get_data_in(0..self.info.frames) {
+            self.audio_data = data;
+        } else {
+            self.audio_data.clear();
+        }
     }
 
     /// Reads and writes the audio data to the given buffer based on the current playhead position and the buffer size.
@@ -111,7 +122,7 @@ impl AudioRegion {
             // Get the audio data that corresponds to the current section
             let data_start = local_start + section.local_start_sample;
             let data_end = local_start + section.local_end_sample;
-            if let Some(data) = self.data_source.get_data_in(data_start..data_end) {
+            if let Some(data) = self.audio_data.get(data_start..data_end) {
                 if data.is_empty() {
                     continue;
                 }
@@ -120,13 +131,13 @@ impl AudioRegion {
                 let resampled = if (section.resample_ratio - 1.0).abs() < 1e-6 {
                     data
                 } else {
-                    resample_channels(&data, self.info.channels, section.resample_ratio)
+                    &resample_channels(data, self.info.channels, section.resample_ratio)
                 };
 
                 // Interleave and add the resampled data to the buffer, which must have MAX_CHANNELS channels
                 if current_dst_offset < buffer.len() {
                     add_samples_interleaved(
-                        &resampled,
+                        resampled,
                         &mut buffer[current_dst_offset..],
                         self.info.channels,
                         MAX_CHANNELS,
