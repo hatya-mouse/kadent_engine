@@ -47,6 +47,7 @@ fn load_from_path(path: &Path, range: Range<usize>) -> Option<Vec<f32>> {
     let mut reader = hound::WavReader::open(path).ok()?;
     let spec = reader.spec();
     let channels = spec.channels as usize;
+    println!("channels: {}, spec.channels: {}", channels, spec.channels);
     // Seek to the first sample in the range
     reader.seek(range.start as u32).ok()?;
     // Then read the samples in the range
