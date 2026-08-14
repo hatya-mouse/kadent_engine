@@ -107,7 +107,10 @@ impl AudioRegion {
             if section.local_start_sample >= section.local_end_sample {
                 continue;
             }
-            println!("Processing the section: {:?}", section);
+            println!(
+                "Processing the section: {:?}, local_start: {}",
+                section, local_start
+            );
 
             // Get the audio data that corresponds to the current section
             let data_start = (local_start + section.local_start_sample) * self.info.channels;

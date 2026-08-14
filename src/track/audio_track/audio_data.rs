@@ -48,7 +48,6 @@ fn load_from_path(path: &Path, range: Range<usize>) -> Option<Vec<f32>> {
     let spec = reader.spec();
     // Seek to the first sample in the range
     reader.seek(range.start as u32).ok()?;
-    println!("Loading audio data from {:?} in range {:?}", path, range);
     // Then read the samples in the range
     match spec.sample_format {
         SampleFormat::Float => Some(
