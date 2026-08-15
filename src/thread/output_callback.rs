@@ -11,14 +11,13 @@ use ringbuf::{
 };
 use std::sync::{
     Arc, Mutex,
-    atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering},
+    atomic::{AtomicBool, AtomicU64, Ordering},
     mpsc,
 };
 
 #[derive(Clone)]
 pub(super) struct OutputCallbackState {
     pub(super) playhead: Arc<AtomicU64>,
-    pub(super) playhead_ticks: Arc<AtomicI64>,
     pub(super) is_playing: Arc<AtomicBool>,
 }
 
@@ -58,13 +57,15 @@ pub(super) fn output_callback(
                 // Process all pending commands from the audio command ringbuf
                 while let Some(command) = ctx.command_cons.try_pop() {
                     match command {
-                        AudioCommand::Seek(target) => {
-                            let target_sample = mixer.project.tempo_map.ticks_to_samples(target);
+                        AudioCommand::Seek(seek_position) => {
+                            let target_sample = seek_position.to_sample(
+                                &mixer.project.tempo_map,
+                                mixer.playback_ctx.sample_rate,
+                            );
                             current_playhead = target_sample as u64;
                             state
                                 .playhead
                                 .store(target_sample as u64, Ordering::Relaxed);
-                            state.playhead_ticks.store(target.0, Ordering::Relaxed);
                             mixer.seek(target_sample);
                         }
                         AudioCommand::ArmTrack(track_id) => {
@@ -110,11 +111,6 @@ pub(super) fn output_callback(
                     let new_playhead =
                         current_playhead.saturating_add(mixer.playback_ctx.buffer_size as u64);
                     state.playhead.store(new_playhead, Ordering::Relaxed);
-                    let new_ticks = mixer
-                        .project
-                        .tempo_map
-                        .samples_to_ticks(new_playhead as usize);
-                    state.playhead_ticks.store(new_ticks.0, Ordering::Relaxed);
                 }
             },
             move |err| {

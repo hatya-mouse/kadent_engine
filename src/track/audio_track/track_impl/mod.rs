@@ -8,7 +8,7 @@ use crate::{
     audio_data::AudioFilePool,
     data_types::{AudioContext, PlaybackContext},
     graph::Graph,
-    timing::{RegionBounds, TempoMap},
+    timing::{TempoMap, TimeBounds},
     track::{
         RegionID, Track,
         audio_track::{AudioTrack, track_impl::render_worker::spawn_render_worker},
@@ -46,7 +46,7 @@ impl Track for AudioTrack {
 
     // --- REGION MODIFICATION ---
 
-    fn set_region_bounds(&mut self, region_id: &RegionID, new_bounds: RegionBounds) {
+    fn set_region_bounds(&mut self, region_id: &RegionID, new_bounds: TimeBounds) {
         if let Some(region) = self.regions.get_mut(region_id) {
             region.bounds = new_bounds;
         }

@@ -15,9 +15,9 @@ pub(super) fn spawn_export_thread(
     let result = thread::Builder::new()
         .name("Export Thread".to_string())
         .spawn(move || {
-            let start_sample = project.tempo_map.ticks_to_samples(project.range_start);
-            let end_sample =
-                start_sample + project.tempo_map.ticks_to_samples(project.range_duration);
+            let (start_sample, end_sample) = project
+                .export_range
+                .sample_range(&project.tempo_map, playback_ctx.sample_rate);
             let buffer_size = playback_ctx.buffer_size;
             let channels = playback_ctx.channels;
 

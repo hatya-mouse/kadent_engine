@@ -2,7 +2,7 @@ use crate::{
     MAX_CHANNELS,
     audio_data::{AudioData, AudioFilePool, AudioSource},
     data_types::{AudioContext, PlaybackContext},
-    timing::{RegionBounds, TempoMap},
+    timing::{TempoMap, TimeBounds},
     track::audio_track::resampler::resample_channels,
     utils::convert_rate_with_ratio,
 };
@@ -14,7 +14,7 @@ use std::sync::Arc;
 pub struct AudioRegion {
     pub data_source: AudioSource,
     /// The bounds for the region.
-    pub bounds: RegionBounds,
+    pub bounds: TimeBounds,
     /// The sample index to start reading the audio data from.
     pub data_offset: usize,
     /// The bpm associated with the audio data. This is used to change the tempo when the tempo of the project is different.
@@ -37,12 +37,7 @@ pub struct AudioRegion {
 impl AudioRegion {
     // --- INITIALIZER ---
 
-    pub fn new(
-        data_source: AudioSource,
-        bounds: RegionBounds,
-        data_offset: usize,
-        bpm: f64,
-    ) -> Self {
+    pub fn new(data_source: AudioSource, bounds: TimeBounds, data_offset: usize, bpm: f64) -> Self {
         Self {
             data_source,
             bounds,
@@ -55,7 +50,7 @@ impl AudioRegion {
         }
     }
 
-    pub fn zeros(bounds: RegionBounds, bpm: f64) -> Self {
+    pub fn zeros(bounds: TimeBounds, bpm: f64) -> Self {
         let data_source = AudioSource::Zero;
         Self {
             data_source,
@@ -151,7 +146,7 @@ impl AudioRegion {
             // Calculate the number of ticks in the current section
             let data_channels = audio_data.info.channels;
             let (data_start, data_end) = match self.bounds {
-                RegionBounds::Musical { start, .. } => {
+                TimeBounds::Musical { start, .. } => {
                     // Calculate the start and end sample positions in the audio data for the current section
                     // Tempo Map:                                                                        *<-- Tempo Event
                     // Ticks Space:       0<----------- start ---------->|<-- ticks_from_region_start -->|
@@ -174,7 +169,7 @@ impl AudioRegion {
                         data_end_sample * data_channels,
                     )
                 }
-                RegionBounds::Time { .. } => {
+                TimeBounds::Time { .. } => {
                     let samples_from_region_start =
                         section.start_sample.saturating_sub(self.sample_bounds.0);
                     let data_start_sample = self.data_offset
@@ -204,8 +199,8 @@ impl AudioRegion {
                 // Calculate the resample ratio based on the sample rate ratio
                 // Include BPM in the calculate only in the Musical region bounds
                 let resample_ratio = match self.bounds {
-                    RegionBounds::Musical { .. } => sample_rate_ratio * section.bpm / self.bpm,
-                    RegionBounds::Time { .. } => sample_rate_ratio,
+                    TimeBounds::Musical { .. } => sample_rate_ratio * section.bpm / self.bpm,
+                    TimeBounds::Time { .. } => sample_rate_ratio,
                 };
 
                 // Resample the audio data based on the resample ratio calculated by the tempo map

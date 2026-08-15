@@ -39,7 +39,7 @@ impl Track for NoteTrack {
 
     // --- REGION MODIFICATION ---
 
-    fn set_region_bounds(&mut self, region_id: &RegionID, new_bounds: crate::timing::RegionBounds) {
+    fn set_region_bounds(&mut self, region_id: &RegionID, new_bounds: crate::timing::TimeBounds) {
         if let Some(region) = self.regions.get_mut(region_id) {
             region.bounds = new_bounds;
         }

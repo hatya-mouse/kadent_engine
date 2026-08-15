@@ -1,8 +1,8 @@
 use crate::{
     audio_data::AudioFilePool,
-    data_types::{AudioContext, PlaybackContext, Ticks},
+    data_types::{AudioContext, PlaybackContext},
     mixer::{Mixer, track_id::TrackID},
-    timing::TempoMap,
+    timing::{TempoMap, TimeBounds},
     track::{Track, error::TrackError},
 };
 use std::collections::HashMap;
@@ -22,10 +22,8 @@ pub struct Project {
     pub audio_ctx: AudioContext,
 
     // --- RANGE ---
-    /// The start beats of the range to be exported or played.
-    pub range_start: Ticks,
-    /// The duration of the range to be exported or played.
-    pub range_duration: Ticks,
+    /// The export range of the project.
+    pub export_range: TimeBounds,
 
     // --- MISCS ---
     /// The next track ID for generating track IDs.
@@ -36,18 +34,12 @@ impl Project {
     // --- NEW ---
 
     /// Creates a new project with the specified initial bpm.
-    pub fn new(
-        audio_ctx: AudioContext,
-        bpm: f64,
-        range_start: Ticks,
-        range_duration: Ticks,
-    ) -> Self {
+    pub fn new(audio_ctx: AudioContext, bpm: f64, export_range: TimeBounds) -> Self {
         Self {
             tracks: HashMap::new(),
-            tempo_map: TempoMap::new(audio_ctx.clone(), bpm),
+            tempo_map: TempoMap::new(audio_ctx.resolution, bpm),
             audio_ctx,
-            range_start,
-            range_duration,
+            export_range,
             next_track_id: 0,
         }
     }
@@ -56,15 +48,13 @@ impl Project {
     pub fn with_tempo_map(
         audio_ctx: AudioContext,
         tempo_map: TempoMap,
-        range_start: Ticks,
-        range_duration: Ticks,
+        export_range: TimeBounds,
     ) -> Self {
         Self {
             tracks: HashMap::new(),
             tempo_map,
             audio_ctx,
-            range_start,
-            range_duration,
+            export_range,
             next_track_id: 0,
         }
     }
@@ -117,13 +107,12 @@ impl Project {
         audio_pool: &mut AudioFilePool,
         playback_ctx: PlaybackContext,
     ) -> (Mixer, Vec<(TrackID, TrackError)>) {
-        // Prepare the tempo map first
-        self.tempo_map.prepare(playback_ctx.clone());
-
         // Prepare the tracks one by one, collecting errors instead of aborting on the first one
         let mut errors = Vec::new();
         for (id, track) in self.tracks.iter_mut() {
-            if let Err(err) = track.prepare(audio_pool, &self.tempo_map, &playback_ctx) {
+            if let Err(err) =
+                track.prepare(audio_pool, &self.tempo_map, &self.audio_ctx, &playback_ctx)
+            {
                 errors.push((*id, err));
             }
         }

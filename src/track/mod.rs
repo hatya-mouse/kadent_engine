@@ -9,7 +9,7 @@ use crate::{
     audio_data::AudioFilePool,
     data_types::{AudioContext, PlaybackContext},
     graph::Graph,
-    timing::{RegionBounds, TempoMap},
+    timing::{TempoMap, TimeBounds},
     track::error::TrackError,
 };
 use std::any::Any;
@@ -28,7 +28,7 @@ pub trait Track: Send + Any {
     fn set_graph(&mut self, graph: Graph);
 
     /// Sets the region bounds to the given one.
-    fn set_region_bounds(&mut self, region_id: &RegionID, new_bounds: RegionBounds);
+    fn set_region_bounds(&mut self, region_id: &RegionID, new_bounds: TimeBounds);
 
     /// Removes the region from the track.
     fn remove_region(&mut self, region_id: &RegionID);

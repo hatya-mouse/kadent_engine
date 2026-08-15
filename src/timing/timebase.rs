@@ -10,7 +10,25 @@ pub enum Timebase {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum RegionBounds {
+pub enum SeekPosition {
+    Musical(Ticks),
+    Time(f64),
+}
+
+impl SeekPosition {
+    pub fn to_sample(&self, tempo_map: &TempoMap, sample_rate: u64) -> usize {
+        match *self {
+            SeekPosition::Musical(ticks) => {
+                let seconds = tempo_map.ticks_to_seconds(ticks);
+                seconds_to_samples(seconds, sample_rate)
+            }
+            SeekPosition::Time(seconds) => seconds_to_samples(seconds, sample_rate),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum TimeBounds {
     Musical {
         start: Ticks,
         duration: Ticks,
@@ -21,7 +39,7 @@ pub enum RegionBounds {
     },
 }
 
-impl RegionBounds {
+impl TimeBounds {
     // --- TICK CALCULATION ---
 
     /// Calculates the start and end ticks of the region from the given tempo map.
@@ -32,16 +50,16 @@ impl RegionBounds {
     /// Calculates the start tick of the region from the given tempo map.
     pub(crate) fn start_tick(&self, tempo_map: &TempoMap) -> Ticks {
         match *self {
-            RegionBounds::Musical { start, .. } => start,
-            RegionBounds::Time { start_seconds, .. } => tempo_map.seconds_to_ticks(start_seconds),
+            TimeBounds::Musical { start, .. } => start,
+            TimeBounds::Time { start_seconds, .. } => tempo_map.seconds_to_ticks(start_seconds),
         }
     }
 
     /// Calculates the end tick of the region from the given tempo map.
     pub(crate) fn end_tick(&self, tempo_map: &TempoMap) -> Ticks {
         match *self {
-            RegionBounds::Musical { start, duration } => start + duration,
-            RegionBounds::Time {
+            TimeBounds::Musical { start, duration } => start + duration,
+            TimeBounds::Time {
                 start_seconds,
                 duration_seconds,
             } => tempo_map.seconds_to_ticks(start_seconds + duration_seconds),
@@ -51,8 +69,8 @@ impl RegionBounds {
     /// Calculates the duration in ticks of the region from the given tempo map.
     pub(crate) fn duration_ticks(&self, tempo_map: &TempoMap) -> Ticks {
         match *self {
-            RegionBounds::Musical { duration, .. } => duration,
-            RegionBounds::Time {
+            TimeBounds::Musical { duration, .. } => duration,
+            TimeBounds::Time {
                 start_seconds,
                 duration_seconds,
             } => {
@@ -74,18 +92,16 @@ impl RegionBounds {
     /// Calculates the start seconds of the region from the given tempo map.
     pub(crate) fn start_seconds(&self, tempo_map: &TempoMap) -> f64 {
         match *self {
-            RegionBounds::Musical { start, .. } => tempo_map.ticks_to_seconds(start),
-            RegionBounds::Time { start_seconds, .. } => start_seconds,
+            TimeBounds::Musical { start, .. } => tempo_map.ticks_to_seconds(start),
+            TimeBounds::Time { start_seconds, .. } => start_seconds,
         }
     }
 
     /// Calculates the end tick of the region from the given tempo map.
     pub(crate) fn end_seconds(&self, tempo_map: &TempoMap) -> f64 {
         match *self {
-            RegionBounds::Musical { start, duration } => {
-                tempo_map.ticks_to_seconds(start + duration)
-            }
-            RegionBounds::Time {
+            TimeBounds::Musical { start, duration } => tempo_map.ticks_to_seconds(start + duration),
+            TimeBounds::Time {
                 start_seconds,
                 duration_seconds,
             } => start_seconds + duration_seconds,

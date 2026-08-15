@@ -1,10 +1,9 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{
     data_types::{PlaybackContext, Ticks},
     graph::automation::{constant::ConstantAutomationCursor, float::FloatAutomationCursor},
     timing::TempoMap,
 };
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Keyframe<T> {
