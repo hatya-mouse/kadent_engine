@@ -1,4 +1,8 @@
-use crate::{data_types::Ticks, timing::TempoMap, utils::seconds_to_samples};
+use crate::{
+    data_types::Ticks,
+    timing::{TempoMap, tempo_map},
+    utils::seconds_to_samples,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -187,5 +191,32 @@ impl TimeBounds {
     pub(crate) fn end_sample(&self, tempo_map: &TempoMap, sample_rate: u64) -> usize {
         let end_seconds = self.end_seconds(tempo_map);
         seconds_to_samples(end_seconds, sample_rate)
+    }
+
+    // --- TICKS SETTER ---
+
+    /// Sets the start tick of the time bounds.
+    pub fn set_start_tick(&mut self, tick: Ticks, tempo_map: &TempoMap) {
+        match self {
+            TimeBounds::Musical { start, .. } => *start = tick,
+            TimeBounds::Time { start_seconds, .. } => {
+                *start_seconds = tempo_map.ticks_to_seconds(tick)
+            }
+        }
+    }
+
+    /// Sets the duration of the time bounds.
+    pub fn set_duration_ticks(&mut self, duration: Ticks, tempo_map: &TempoMap) {
+        match self {
+            TimeBounds::Musical { duration: dur, .. } => *dur = duration,
+            TimeBounds::Time {
+                duration_seconds,
+                start_seconds,
+            } => {
+                let start_tick = tempo_map.seconds_to_ticks(*start_seconds);
+                let end_seconds = tempo_map.ticks_to_seconds(start_tick + duration);
+                *duration_seconds = end_seconds - *start_seconds;
+            }
+        }
     }
 }
