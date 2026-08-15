@@ -212,7 +212,7 @@ impl AudioRegion {
                         &mut self.resampled_buffer,
                         rendered_frames,
                         audio_data.info.channels,
-                        resample_ratio,
+                        1.0 / resample_ratio,
                     );
                 };
 
