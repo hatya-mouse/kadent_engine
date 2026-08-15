@@ -40,12 +40,12 @@ impl TimeBounds {
     // --- TICK CALCULATION ---
 
     /// Calculates the start and end ticks of the region from the given tempo map.
-    pub(crate) fn tick_range(&self, tempo_map: &TempoMap) -> (Ticks, Ticks) {
+    pub fn tick_range(&self, tempo_map: &TempoMap) -> (Ticks, Ticks) {
         (self.start_tick(tempo_map), self.end_tick(tempo_map))
     }
 
     /// Calculates the start tick of the region from the given tempo map.
-    pub(crate) fn start_tick(&self, tempo_map: &TempoMap) -> Ticks {
+    pub fn start_tick(&self, tempo_map: &TempoMap) -> Ticks {
         match *self {
             TimeBounds::Musical { start, .. } => start,
             TimeBounds::Time { start_seconds, .. } => tempo_map.seconds_to_ticks(start_seconds),
@@ -53,7 +53,7 @@ impl TimeBounds {
     }
 
     /// Calculates the end tick of the region from the given tempo map.
-    pub(crate) fn end_tick(&self, tempo_map: &TempoMap) -> Ticks {
+    pub fn end_tick(&self, tempo_map: &TempoMap) -> Ticks {
         match *self {
             TimeBounds::Musical { start, duration } => start + duration,
             TimeBounds::Time {
@@ -66,7 +66,7 @@ impl TimeBounds {
     // --- SECONDS CALCULATION ---
 
     /// Calculates the start seconds of the region from the given tempo map.
-    pub(crate) fn start_seconds(&self, tempo_map: &TempoMap) -> f64 {
+    pub fn start_seconds(&self, tempo_map: &TempoMap) -> f64 {
         match *self {
             TimeBounds::Musical { start, .. } => tempo_map.ticks_to_seconds(start),
             TimeBounds::Time { start_seconds, .. } => start_seconds,
@@ -74,7 +74,7 @@ impl TimeBounds {
     }
 
     /// Calculates the end tick of the region from the given tempo map.
-    pub(crate) fn end_seconds(&self, tempo_map: &TempoMap) -> f64 {
+    pub fn end_seconds(&self, tempo_map: &TempoMap) -> f64 {
         match *self {
             TimeBounds::Musical { start, duration } => tempo_map.ticks_to_seconds(start + duration),
             TimeBounds::Time {
