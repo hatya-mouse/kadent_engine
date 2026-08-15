@@ -1,8 +1,4 @@
-use crate::{
-    data_types::Ticks,
-    timing::{TempoMap, tempo_map},
-    utils::seconds_to_samples,
-};
+use crate::{data_types::Ticks, timing::TempoMap, utils::seconds_to_samples};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
