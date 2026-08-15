@@ -109,7 +109,7 @@ impl AudioRegion {
             return;
         };
         let data_sample_rate = audio_data.info.sample_rate;
-        let sample_rate_ratio = playback_ctx.sample_rate as f64 / data_sample_rate as f64;
+        let sample_rate_ratio = data_sample_rate as f64 / playback_ctx.sample_rate as f64;
 
         // Skip processing if the region is entirely outside the buffer
         let buffer_end = playhead + playback_ctx.buffer_size;
@@ -172,13 +172,10 @@ impl AudioRegion {
                     let samples_from_region_start =
                         section.start_sample.saturating_sub(self.sample_bounds.0);
                     let data_start_sample = self.data_offset
-                        + convert_rate_with_ratio(
-                            samples_from_region_start,
-                            1.0 / sample_rate_ratio,
-                        );
+                        + convert_rate_with_ratio(samples_from_region_start, sample_rate_ratio);
 
                     let data_section_samples =
-                        convert_rate_with_ratio(rendered_frames, 1.0 / sample_rate_ratio);
+                        convert_rate_with_ratio(rendered_frames, sample_rate_ratio);
                     let data_end_sample = data_start_sample + data_section_samples;
 
                     (
@@ -198,7 +195,7 @@ impl AudioRegion {
                 // Calculate the resample ratio based on the sample rate ratio
                 // Include BPM in the calculate only in the Musical region bounds
                 let resample_ratio = match self.bounds {
-                    TimeBounds::Musical { .. } => sample_rate_ratio * section.bpm / self.bpm,
+                    TimeBounds::Musical { .. } => sample_rate_ratio * self.bpm / section.bpm,
                     TimeBounds::Time { .. } => sample_rate_ratio,
                 };
 
@@ -212,7 +209,7 @@ impl AudioRegion {
                         &mut self.resampled_buffer,
                         rendered_frames,
                         audio_data.info.channels,
-                        1.0 / resample_ratio,
+                        resample_ratio,
                     );
                 };
 
