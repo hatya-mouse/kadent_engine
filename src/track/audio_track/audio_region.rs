@@ -4,7 +4,7 @@ use crate::{
     data_types::{AudioContext, PlaybackContext},
     timing::{TempoMap, TimeBounds},
     track::audio_track::resampler::resample_channels,
-    utils::convert_rate_with_ratio,
+    utils::{convert_rate_with_ratio, samples_per_tick},
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -83,8 +83,8 @@ impl AudioRegion {
         if let Some(audio_data) = &self.audio_data {
             self.resampled_buffer
                 .reserve(playback_ctx.buffer_size * audio_data.info.channels);
-            self.data_samples_per_tick = 60.0 * audio_data.info.sample_rate as f64
-                / (self.bpm * audio_ctx.resolution as f64);
+            self.data_samples_per_tick =
+                samples_per_tick(audio_data.info.sample_rate, self.bpm, audio_ctx.resolution);
         } else {
             self.resampled_buffer.clear();
         }

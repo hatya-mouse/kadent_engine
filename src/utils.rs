@@ -20,3 +20,9 @@ pub fn samples_to_seconds(samples: usize, sample_rate: u64) -> f64 {
 pub fn convert_rate_with_ratio(samples: usize, ratio: f64) -> usize {
     (samples as f64 * ratio).round() as usize
 }
+
+/// Calculates the number of samples per tick based on the given sample rate, BPM, and resolution.
+#[inline]
+pub fn samples_per_tick(sample_rate: u64, bpm: f64, resolution: u64) -> f64 {
+    60.0 * sample_rate as f64 / (bpm * resolution as f64)
+}
