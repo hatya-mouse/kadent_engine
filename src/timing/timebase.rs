@@ -16,6 +16,15 @@ pub enum TimePosition {
 }
 
 impl TimePosition {
+    /// Converts the time position to ticks using the given tempo map.
+    pub fn to_ticks(&self, tempo_map: &TempoMap) -> Ticks {
+        match *self {
+            TimePosition::Musical(ticks) => ticks,
+            TimePosition::Time(seconds) => tempo_map.seconds_to_ticks(seconds),
+        }
+    }
+
+    /// Converts the time position to seconds using the given tempo map.
     pub fn to_sample(&self, tempo_map: &TempoMap, sample_rate: u64) -> usize {
         match *self {
             TimePosition::Musical(ticks) => tempo_map.ticks_to_samples(ticks, sample_rate),

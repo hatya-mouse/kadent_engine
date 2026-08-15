@@ -148,10 +148,16 @@ impl TempoMap {
         }
     }
 
-    /// Converts the Ticks to samples using the tempo map.
+    /// Converts Ticks to samples using the tempo map.
     #[inline]
     pub fn ticks_to_samples(&self, tick: Ticks, sample_rate: u64) -> usize {
         seconds_to_samples(self.ticks_to_seconds(tick), sample_rate)
+    }
+
+    /// Converts samples to Ticks using the tempo map.
+    #[inline]
+    pub fn samples_to_ticks(&self, sample: usize, sample_rate: u64) -> Ticks {
+        self.seconds_to_ticks(samples_to_seconds(sample, sample_rate))
     }
 
     /// Calculates seconds per tick for the given bpm.

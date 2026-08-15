@@ -11,13 +11,14 @@ use ringbuf::{
 };
 use std::sync::{
     Arc, Mutex,
-    atomic::{AtomicBool, AtomicU64, Ordering},
+    atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering},
     mpsc,
 };
 
 #[derive(Clone)]
 pub(super) struct OutputCallbackState {
     pub(super) playhead: Arc<AtomicU64>,
+    pub(super) playhead_tick: Arc<AtomicI64>,
     pub(super) is_playing: Arc<AtomicBool>,
 }
 
@@ -58,15 +59,21 @@ pub(super) fn output_callback(
                 while let Some(command) = ctx.command_cons.try_pop() {
                     match command {
                         AudioCommand::Seek(seek_position) => {
-                            let target_sample = seek_position.to_sample(
+                            let playhead_sample = seek_position.to_sample(
                                 &mixer.project.tempo_map,
                                 mixer.playback_ctx.sample_rate,
                             );
-                            current_playhead = target_sample as u64;
+                            current_playhead = playhead_sample as u64;
                             state
                                 .playhead
-                                .store(target_sample as u64, Ordering::Relaxed);
-                            mixer.seek(target_sample);
+                                .store(playhead_sample as u64, Ordering::Relaxed);
+
+                            let playhead_tick = seek_position.to_ticks(&mixer.project.tempo_map);
+                            state
+                                .playhead_tick
+                                .store(playhead_tick.0, Ordering::Relaxed);
+
+                            mixer.seek(playhead_sample);
                         }
                         AudioCommand::ArmTrack(track_id) => {
                             armed_track = Some(track_id);
@@ -111,6 +118,14 @@ pub(super) fn output_callback(
                     let new_playhead =
                         current_playhead.saturating_add(mixer.playback_ctx.buffer_size as u64);
                     state.playhead.store(new_playhead, Ordering::Relaxed);
+                    state.playhead_tick.store(
+                        mixer
+                            .project
+                            .tempo_map
+                            .samples_to_ticks(new_playhead as usize, mixer.playback_ctx.sample_rate)
+                            .0,
+                        Ordering::Relaxed,
+                    );
                 }
             },
             move |err| {
