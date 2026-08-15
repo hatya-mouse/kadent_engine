@@ -9,7 +9,7 @@ pub enum Timebase {
     Time,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum SeekPosition {
     Musical(Ticks),
     Time(f64),
