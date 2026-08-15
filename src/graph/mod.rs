@@ -6,8 +6,8 @@ mod topological_sort;
 use crate::{
     data_types::PlaybackContext,
     graph::{automation::KeyframeManager, error::GraphError, node_id::NodeID},
-    mixer::TempoMap,
     node::Node,
+    timing::TempoMap,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

@@ -6,6 +6,7 @@ pub mod graph;
 pub mod mixer;
 pub mod node;
 pub mod thread;
+pub mod timing;
 pub mod track;
 
 /// Maximum supported number of channels for audio output.

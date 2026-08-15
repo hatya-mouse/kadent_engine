@@ -2,27 +2,23 @@ use crate::data_types::Ticks;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TempoEvent {
     /// The ticks at which the tempo change occurs.
-    pub(super) ticks: Ticks,
+    pub(super) tick: Ticks,
     /// The bpm which the event represents.
     pub(super) bpm: f64,
-    /// Cached sample offset in the global sample rate.
+    /// Cached accumulated event position in seconds.
     #[serde(skip)]
-    pub(super) sample_offset: usize,
-    /// Cached factor for converting ticks to samples, calculated from the audio context.
-    #[serde(skip)]
-    samples_per_tick_fp: u64,
+    pub time_seconds: f64,
 }
 
 impl TempoEvent {
-    pub fn new(ticks: Ticks, bpm: f64, sample_offset: usize) -> Self {
+    pub fn new(ticks: Ticks, bpm: f64) -> Self {
         Self {
             ticks,
             bpm,
-            sample_offset,
-            samples_per_tick_fp: 0,
+            time_seconds: 0.0,
         }
     }
 
@@ -34,8 +30,8 @@ impl TempoEvent {
         self.bpm
     }
 
-    pub fn sample_offset(&self) -> usize {
-        self.sample_offset
+    pub fn time_seconds(&self) -> f64 {
+        self.time_seconds
     }
 
     pub fn set_ticks(&mut self, ticks: Ticks) {

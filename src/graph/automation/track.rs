@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     data_types::{PlaybackContext, Ticks},
     graph::automation::{constant::ConstantAutomationCursor, float::FloatAutomationCursor},
-    mixer::TempoMap,
+    timing::TempoMap,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

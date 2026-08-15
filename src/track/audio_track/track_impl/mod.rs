@@ -8,7 +8,7 @@ use crate::{
     audio_data::AudioFilePool,
     data_types::{PlaybackContext, Ticks},
     graph::Graph,
-    mixer::TempoMap,
+    timing::TempoMap,
     track::{
         RegionID, Track,
         audio_track::{AudioTrack, track_impl::render_worker::spawn_render_worker},

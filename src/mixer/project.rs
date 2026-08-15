@@ -1,7 +1,8 @@
 use crate::{
     audio_data::AudioFilePool,
     data_types::{AudioContext, PlaybackContext, Ticks},
-    mixer::{Mixer, TempoMap, track_id::TrackID},
+    mixer::{Mixer, track_id::TrackID},
+    timing::TempoMap,
     track::{Track, error::TrackError},
 };
 use std::collections::HashMap;

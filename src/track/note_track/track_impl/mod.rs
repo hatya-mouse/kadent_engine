@@ -5,7 +5,7 @@ use crate::{
     audio_data::AudioFilePool,
     data_types::{PlaybackContext, Ticks},
     graph::Graph,
-    mixer::TempoMap,
+    timing::TempoMap,
     track::{
         RegionID, Track,
         error::TrackError,

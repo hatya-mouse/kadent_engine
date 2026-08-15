@@ -5,7 +5,7 @@ mod track;
 use serde::{Deserialize, Serialize};
 pub use track::{AutomationTrack, Keyframe};
 
-use crate::{data_types::PlaybackContext, graph::node_id::NodeID, mixer::TempoMap};
+use crate::{data_types::PlaybackContext, graph::node_id::NodeID, timing::TempoMap};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

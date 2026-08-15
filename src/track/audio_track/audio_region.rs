@@ -2,7 +2,7 @@ use crate::{
     MAX_CHANNELS,
     audio_data::{AudioData, AudioFilePool, AudioSource},
     data_types::{PlaybackContext, Ticks},
-    mixer::TempoMap,
+    timing::TempoMap,
     track::audio_track::resampler::resample_channels,
 };
 use serde::{Deserialize, Serialize};
@@ -183,14 +183,6 @@ impl AudioRegion {
                 current_dst_offset += rendered_frames * MAX_CHANNELS;
             }
         }
-    }
-
-    // --- CALCULATIONS ---
-
-    /// Returns the end position of the audio region in ticks.
-    #[inline]
-    fn end(&self) -> Ticks {
-        self.start + self.duration
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::{
-    MAX_CHANNELS, THREAD_WAIT_DURATION, data_types::PlaybackContext, mixer::TempoMap,
+    MAX_CHANNELS, THREAD_WAIT_DURATION, data_types::PlaybackContext, timing::TempoMap,
     track::audio_track::AudioRegion,
 };
 use ringbuf::traits::{Observer, Producer};

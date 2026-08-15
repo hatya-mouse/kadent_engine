@@ -1,6 +1,6 @@
 use crate::{
     data_types::{Event, EventSlot, PlaybackContext, Ticks},
-    mixer::TempoMap,
+    timing::TempoMap,
     track::note_track::{
         Note, NoteTrack, ProcessedNote, VoiceEvent,
         voice_event::{VoiceEventKind, VoiceSource},
