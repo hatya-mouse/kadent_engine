@@ -27,6 +27,9 @@ pub trait Track: Send + Any {
     /// Sets the Graph to the new one.
     fn set_graph(&mut self, graph: Graph);
 
+    /// Gets the region bounds for the given region ID.
+    fn get_region_bounds(&self, region_id: &RegionID) -> Option<&TimeBounds>;
+
     /// Sets the region bounds to the given one.
     fn set_region_bounds(&mut self, region_id: &RegionID, new_bounds: TimeBounds);
 

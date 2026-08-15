@@ -5,7 +5,7 @@ use crate::{
     audio_data::AudioFilePool,
     data_types::{AudioContext, PlaybackContext},
     graph::Graph,
-    timing::TempoMap,
+    timing::{TempoMap, TimeBounds},
     track::{
         RegionID, Track,
         error::TrackError,
@@ -37,9 +37,15 @@ impl Track for NoteTrack {
         self.graph = graph;
     }
 
+    // --- REGION BOUNDS GETTING ---
+
+    fn get_region_bounds(&self, region_id: &RegionID) -> Option<&TimeBounds> {
+        self.regions.get(region_id).map(|region| &region.bounds)
+    }
+
     // --- REGION MODIFICATION ---
 
-    fn set_region_bounds(&mut self, region_id: &RegionID, new_bounds: crate::timing::TimeBounds) {
+    fn set_region_bounds(&mut self, region_id: &RegionID, new_bounds: TimeBounds) {
         if let Some(region) = self.regions.get_mut(region_id) {
             region.bounds = new_bounds;
         }

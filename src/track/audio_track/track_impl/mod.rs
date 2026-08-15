@@ -44,6 +44,12 @@ impl Track for AudioTrack {
         self.graph = graph;
     }
 
+    // --- REGION BOUNDS GETTING ---
+
+    fn get_region_bounds(&self, region_id: &RegionID) -> Option<&TimeBounds> {
+        self.regions.get(region_id).map(|region| &region.bounds)
+    }
+
     // --- REGION MODIFICATION ---
 
     fn set_region_bounds(&mut self, region_id: &RegionID, new_bounds: TimeBounds) {
