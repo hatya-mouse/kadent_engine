@@ -5,6 +5,7 @@ use crate::{
         Note, NoteTrack, ProcessedNote, VoiceEvent,
         voice_event::{VoiceEventKind, VoiceSource},
     },
+    utils::seconds_to_samples,
 };
 use std::cmp::Reverse;
 
@@ -12,24 +13,27 @@ impl NoteTrack {
     // --- PREPARATION ---
 
     /// Extracts all notes from the regions and puts them into a HashMap with the key as (RegionID, NoteID) and the value as Note.
-    pub(super) fn pre_process_notes(&mut self) {
+    pub(super) fn pre_process_notes(&mut self, tempo_map: &TempoMap) {
         let mut notes: Vec<Note> = Vec::new();
 
         // Convert the local start Ticks to global Ticks by adding the start of the region
         for (_, region) in self.regions.iter() {
+            let (region_start, region_end) = region.bounds.tick_range(tempo_map);
+            let region_duration = (region_end - region_start).max(Ticks(0));
+
             for (_, note) in region.notes.iter() {
                 // If the start of the note is after the end of the region
                 // ...or if the end of the note is before the start of the region, skip it
                 let note_end = note.start + note.duration;
-                if note.start > region.duration || note_end < Ticks(0) {
+                if note.start > region_duration || note_end < Ticks(0) {
                     continue;
                 }
 
                 // If the start of the note is before the start of the region, clamp it
                 let clamped_start = note.start.max(Ticks(0));
-                let absolute_start = clamped_start + region.start;
+                let absolute_start = clamped_start + region_start;
                 // If the end of the note is after the end of the region, clamp it
-                let clamped_duration = note_end.min(region.duration) - clamped_start;
+                let clamped_duration = note_end.min(region_duration) - clamped_start;
 
                 notes.push(Note {
                     start: absolute_start,
@@ -91,10 +95,12 @@ impl NoteTrack {
         playback_ctx: &PlaybackContext,
     ) {
         let buffer_end = playhead + playback_ctx.buffer_size;
+        let sample_rate = playback_ctx.sample_rate;
 
         for note in self.processed_notes.iter() {
             // Use samples for comparison to avoid asymmetric rounding
-            let absolute_start_sample = tempo_map.ticks_to_samples(note.start);
+            let absolute_start_sample =
+                seconds_to_samples(tempo_map.ticks_to_seconds(note.start), sample_rate);
 
             if absolute_start_sample < playhead {
                 continue;
@@ -102,7 +108,10 @@ impl NoteTrack {
                 break;
             }
 
-            let absolute_end_sample = tempo_map.ticks_to_samples(note.start + note.duration);
+            let absolute_end_sample = seconds_to_samples(
+                tempo_map.ticks_to_seconds(note.start + note.duration),
+                sample_rate,
+            );
 
             // Add the note start and end event to the events
             self.voice_events.push(Reverse(VoiceEvent::new(

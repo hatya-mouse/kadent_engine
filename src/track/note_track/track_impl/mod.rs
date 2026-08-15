@@ -3,7 +3,7 @@ mod process;
 use crate::{
     MAX_CHANNELS,
     audio_data::AudioFilePool,
-    data_types::{PlaybackContext, Ticks},
+    data_types::{AudioContext, PlaybackContext},
     graph::Graph,
     timing::TempoMap,
     track::{
@@ -39,15 +39,9 @@ impl Track for NoteTrack {
 
     // --- REGION MODIFICATION ---
 
-    fn move_region(&mut self, region_id: &RegionID, new_start: Ticks) {
+    fn set_region_bounds(&mut self, region_id: &RegionID, new_bounds: crate::timing::RegionBounds) {
         if let Some(region) = self.regions.get_mut(region_id) {
-            region.start = new_start;
-        }
-    }
-
-    fn set_region_duration(&mut self, region_id: &RegionID, new_duration: Ticks) {
-        if let Some(region) = self.regions.get_mut(region_id) {
-            region.duration = new_duration;
+            region.bounds = new_bounds;
         }
     }
 
@@ -70,10 +64,11 @@ impl Track for NoteTrack {
         &mut self,
         _audio_pool: &mut AudioFilePool,
         tempo_map: &TempoMap,
+        _audio_ctx: &AudioContext,
         playback_ctx: &PlaybackContext,
     ) -> Result<(), TrackError> {
         // Pre-process the sequenced notes into processed notes
-        self.pre_process_notes();
+        self.pre_process_notes(tempo_map);
 
         // Clear the voices and events
         self.voice_events.clear();
