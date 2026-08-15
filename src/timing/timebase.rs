@@ -153,6 +153,20 @@ impl TimeBounds {
         }
     }
 
+    /// Calculates the duration of the time bounds in seconds from the given tempo map.
+    pub fn duration_seconds(&self, tempo_map: &TempoMap) -> f64 {
+        match *self {
+            TimeBounds::Musical { start, duration } => {
+                let start_seconds = tempo_map.ticks_to_seconds(start);
+                let end_seconds = tempo_map.ticks_to_seconds(start + duration);
+                end_seconds - start_seconds
+            }
+            TimeBounds::Time {
+                duration_seconds, ..
+            } => duration_seconds,
+        }
+    }
+
     // --- SAMPLE CONVERSION ---
 
     // Calculate the start and end samples from the given tempo map and sample rate.
