@@ -14,8 +14,8 @@ pub struct AudioRegion {
     pub data_source: AudioSource,
     /// The start ticks of the audio region in the project timeline.
     pub start: Ticks,
-    /// The duration of the audio region in ticks.
-    pub duration: Ticks,
+    /// The sample count of the region in the audio data.
+    pub duration: usize,
     /// The start offset sample index in the audio data.
     pub start_offset: usize,
     /// The bpm associated with the audio data. This is used to change the tempo when the tempo of the project is different.
@@ -41,7 +41,7 @@ impl AudioRegion {
     pub fn new(
         data_source: AudioSource,
         start: Ticks,
-        duration: Ticks,
+        duration: usize,
         start_offset: usize,
         bpm: f64,
     ) -> Self {
@@ -58,7 +58,7 @@ impl AudioRegion {
         }
     }
 
-    pub fn zeros(start: Ticks, duration: Ticks, start_offset: usize, bpm: f64) -> Self {
+    pub fn zeros(start: Ticks, duration: usize, start_offset: usize, bpm: f64) -> Self {
         let data_source = AudioSource::Zero;
         Self {
             data_source,
