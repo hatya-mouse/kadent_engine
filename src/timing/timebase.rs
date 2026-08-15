@@ -16,6 +16,14 @@ pub enum TimePosition {
 }
 
 impl TimePosition {
+    /// Returns the timebase of the time bounds.
+    pub fn timebase(&self) -> Timebase {
+        match *self {
+            TimePosition::Musical(_) => Timebase::Musical,
+            TimePosition::Time(_) => Timebase::Time,
+        }
+    }
+
     /// Converts the time position to ticks using the given tempo map.
     pub fn to_ticks(&self, tempo_map: &TempoMap) -> Ticks {
         match *self {
@@ -46,6 +54,14 @@ pub enum TimeBounds {
 }
 
 impl TimeBounds {
+    /// Returns the timebase of the time bounds.
+    pub fn timebase(&self) -> Timebase {
+        match *self {
+            TimeBounds::Musical { .. } => Timebase::Musical,
+            TimeBounds::Time { .. } => Timebase::Time,
+        }
+    }
+
     // --- TIMEPOSITION GETTING ---
 
     /// Returns the start position.
