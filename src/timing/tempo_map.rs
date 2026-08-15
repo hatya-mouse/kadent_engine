@@ -110,6 +110,17 @@ impl TempoMap {
         }
     }
 
+    // --- BPM GETTING ---
+
+    pub fn bpm_at_tick(&self, tick: Ticks) -> f64 {
+        let idx = self.events.partition_point(|e| e.tick.0 <= tick.0);
+        if idx == 0 {
+            self.initial_bpm
+        } else {
+            self.events[idx - 1].bpm
+        }
+    }
+
     // --- TICKS CONVERSION ---
 
     /// Converts the Ticks to seconds using the tempo map.
