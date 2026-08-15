@@ -33,6 +33,14 @@ impl TimePosition {
     }
 
     /// Converts the time position to seconds using the given tempo map.
+    pub fn to_seconds(&self, tempo_map: &TempoMap) -> f64 {
+        match *self {
+            TimePosition::Musical(ticks) => tempo_map.ticks_to_seconds(ticks),
+            TimePosition::Time(seconds) => seconds,
+        }
+    }
+
+    /// Converts the time position to seconds using the given tempo map.
     pub fn to_sample(&self, tempo_map: &TempoMap, sample_rate: u64) -> usize {
         match *self {
             TimePosition::Musical(ticks) => tempo_map.ticks_to_samples(ticks, sample_rate),
