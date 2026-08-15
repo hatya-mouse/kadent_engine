@@ -5,7 +5,6 @@ use crate::{
         Note, NoteTrack, ProcessedNote, VoiceEvent,
         voice_event::{VoiceEventKind, VoiceSource},
     },
-    utils::seconds_to_samples,
 };
 use std::cmp::Reverse;
 
@@ -99,8 +98,7 @@ impl NoteTrack {
 
         for note in self.processed_notes.iter() {
             // Use samples for comparison to avoid asymmetric rounding
-            let absolute_start_sample =
-                seconds_to_samples(tempo_map.ticks_to_seconds(note.start), sample_rate);
+            let absolute_start_sample = tempo_map.ticks_to_samples(note.start, sample_rate);
 
             if absolute_start_sample < playhead {
                 continue;
@@ -108,10 +106,8 @@ impl NoteTrack {
                 break;
             }
 
-            let absolute_end_sample = seconds_to_samples(
-                tempo_map.ticks_to_seconds(note.start + note.duration),
-                sample_rate,
-            );
+            let absolute_end_sample =
+                tempo_map.ticks_to_samples(note.start + note.duration, sample_rate);
 
             // Add the note start and end event to the events
             self.voice_events.push(Reverse(VoiceEvent::new(

@@ -2,6 +2,7 @@ use crate::{
     data_types::{PlaybackContext, Sample, TypeInfo},
     graph::error::NodeError,
     node::Node,
+    timing::TempoMap,
 };
 use std::ptr::copy_nonoverlapping;
 
@@ -48,7 +49,11 @@ impl Node for AudioOutputNode {
         self.data_type = TypeInfo::new(size_of::<Sample>(), align_of::<Sample>());
     }
 
-    fn prepare(&mut self, _playback_ctx: &PlaybackContext) -> Result<(), Box<dyn NodeError>> {
+    fn prepare(
+        &mut self,
+        _tempo_map: &TempoMap,
+        _playback_ctx: &PlaybackContext,
+    ) -> Result<(), Box<dyn NodeError>> {
         self.data_type = TypeInfo::new(size_of::<Sample>(), align_of::<Sample>());
         Ok(())
     }
@@ -57,6 +62,7 @@ impl Node for AudioOutputNode {
         &mut self,
         inputs: &[*const u8],
         outputs: &[*mut u8],
+        _playhead: usize,
         playback_ctx: &PlaybackContext,
     ) {
         for (input, output) in inputs.iter().zip(outputs.iter()) {

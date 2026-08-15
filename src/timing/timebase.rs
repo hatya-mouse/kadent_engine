@@ -18,10 +18,7 @@ pub enum SeekPosition {
 impl SeekPosition {
     pub fn to_sample(&self, tempo_map: &TempoMap, sample_rate: u64) -> usize {
         match *self {
-            SeekPosition::Musical(ticks) => {
-                let seconds = tempo_map.ticks_to_seconds(ticks);
-                seconds_to_samples(seconds, sample_rate)
-            }
+            SeekPosition::Musical(ticks) => tempo_map.ticks_to_samples(ticks, sample_rate),
             SeekPosition::Time(seconds) => seconds_to_samples(seconds, sample_rate),
         }
     }
@@ -66,28 +63,7 @@ impl TimeBounds {
         }
     }
 
-    /// Calculates the duration in ticks of the region from the given tempo map.
-    pub(crate) fn duration_ticks(&self, tempo_map: &TempoMap) -> Ticks {
-        match *self {
-            TimeBounds::Musical { duration, .. } => duration,
-            TimeBounds::Time {
-                start_seconds,
-                duration_seconds,
-            } => {
-                let end_seconds = start_seconds + duration_seconds;
-                let start_tick = tempo_map.seconds_to_ticks(start_seconds);
-                let end_tick = tempo_map.seconds_to_ticks(end_seconds);
-                end_tick - start_tick
-            }
-        }
-    }
-
     // --- SECONDS CALCULATION ---
-
-    /// Calculates the start and end seconds of the region from the given tempo map.
-    pub(crate) fn seconds_range(&self, tempo_map: &TempoMap) -> (f64, f64) {
-        (self.start_seconds(tempo_map), self.end_seconds(tempo_map))
-    }
 
     /// Calculates the start seconds of the region from the given tempo map.
     pub(crate) fn start_seconds(&self, tempo_map: &TempoMap) -> f64 {
@@ -128,11 +104,5 @@ impl TimeBounds {
     pub(crate) fn end_sample(&self, tempo_map: &TempoMap, sample_rate: u64) -> usize {
         let end_seconds = self.end_seconds(tempo_map);
         seconds_to_samples(end_seconds, sample_rate)
-    }
-
-    // Calculates the duration in samples of the region from the given tempo map and sample rate.
-    pub(crate) fn duration_samples(&self, tempo_map: &TempoMap, sample_rate: u64) -> usize {
-        let duration_seconds = self.end_seconds(tempo_map) - self.start_seconds(tempo_map);
-        seconds_to_samples(duration_seconds, sample_rate)
     }
 }

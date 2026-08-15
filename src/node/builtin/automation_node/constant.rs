@@ -1,4 +1,4 @@
-use crate::graph::automation::Keyframe;
+use crate::node::builtin::Keyframe;
 
 #[derive(Debug, Clone, Default)]
 pub struct ConstantAutomationCursor {

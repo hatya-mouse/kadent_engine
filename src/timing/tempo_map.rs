@@ -1,7 +1,7 @@
 use crate::{
     data_types::Ticks,
     timing::{TempoEvent, TempoSection},
-    utils::samples_to_seconds,
+    utils::{samples_to_seconds, seconds_to_samples},
 };
 use serde::{Deserialize, Serialize};
 
@@ -146,6 +146,12 @@ impl TempoMap {
             // Add the calculated ticks to the event's tick
             Ticks(event.tick.0 + (delta_seconds * ticks_per_second) as i64)
         }
+    }
+
+    /// Converts the Ticks to samples using the tempo map.
+    #[inline]
+    pub fn ticks_to_samples(&self, tick: Ticks, sample_rate: u64) -> usize {
+        seconds_to_samples(self.ticks_to_seconds(tick), sample_rate)
     }
 
     /// Calculates seconds per tick for the given bpm.

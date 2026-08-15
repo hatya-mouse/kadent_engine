@@ -159,9 +159,8 @@ impl AudioRegion {
                     let data_samples_from_region_start =
                         (ticks_from_region_start.0 as f64 * self.data_samples_per_tick) as usize;
                     let data_start_sample = self.data_offset + data_samples_from_region_start;
-                    let data_duration_samples = (section.duration_tick.0 as f64
-                        * self.data_samples_per_tick as f64)
-                        as usize;
+                    let data_duration_samples =
+                        (section.duration_tick.0 as f64 * self.data_samples_per_tick) as usize;
                     let data_end_sample = data_start_sample + data_duration_samples;
 
                     (

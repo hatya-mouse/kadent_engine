@@ -3,6 +3,7 @@ pub mod builtin;
 use crate::{
     data_types::{PlaybackContext, TypeInfo},
     graph::error::NodeError,
+    timing::TempoMap,
 };
 use std::any::Any;
 
@@ -32,13 +33,18 @@ pub trait Node: Send + Any {
     fn update_type_info(&mut self);
 
     /// Prepares the node for processing.
-    fn prepare(&mut self, playback_ctx: &PlaybackContext) -> Result<(), Box<dyn NodeError>>;
+    fn prepare(
+        &mut self,
+        tempo_map: &TempoMap,
+        playback_ctx: &PlaybackContext,
+    ) -> Result<(), Box<dyn NodeError>>;
 
     /// Processes the given input pointer and writes the output to the output pointer.
     fn process(
         &mut self,
         inputs: &[*const u8],
         outputs: &[*mut u8],
+        playhead: usize,
         playback_ctx: &PlaybackContext,
     );
 

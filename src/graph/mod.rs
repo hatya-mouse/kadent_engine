@@ -1,11 +1,10 @@
-pub mod automation;
 pub mod error;
 pub mod node_id;
 mod topological_sort;
 
 use crate::{
     data_types::PlaybackContext,
-    graph::{automation::KeyframeManager, error::GraphError, node_id::NodeID},
+    graph::{error::GraphError, node_id::NodeID},
     node::Node,
     timing::TempoMap,
 };
@@ -39,10 +38,6 @@ pub struct Graph {
     /// Stores pointers to the output buffers of each node.
     node_outputs: HashMap<NodeID, Vec<*mut u8>>,
     zero_buffer: Vec<u8>,
-
-    // --- KEYFRAMES ---
-    /// The keyframe manager that calculates and holds the keyframe values for each node and input index.
-    pub keyframe_manager: KeyframeManager,
 
     // --- MISC ---
     next_node_id: u64,
@@ -263,7 +258,7 @@ impl Graph {
         // Prepare the input node and allocate its output buffer
         if let Some(input_node) = self.nodes.get_mut(&self.input_id) {
             input_node
-                .prepare(playback_ctx)
+                .prepare(tempo_map, playback_ctx)
                 .map_err(GraphError::NodeError)?;
 
             Self::allocate_output_buffer(
@@ -278,14 +273,15 @@ impl Graph {
         // Prepare the output node as well
         if let Some(output_node) = self.nodes.get_mut(&self.output_id) {
             output_node
-                .prepare(playback_ctx)
+                .prepare(tempo_map, playback_ctx)
                 .map_err(GraphError::NodeError)?;
         }
 
         for node_id in &self.sorted_nodes {
             if let Some(node) = self.nodes.get_mut(node_id) {
                 // Call prepare function for every nodes
-                node.prepare(playback_ctx).map_err(GraphError::NodeError)?;
+                node.prepare(tempo_map, playback_ctx)
+                    .map_err(GraphError::NodeError)?;
 
                 Self::allocate_output_buffer(
                     node_id,
@@ -296,9 +292,6 @@ impl Graph {
                 )?;
             }
         }
-
-        // Prepare the keyframe manager
-        self.keyframe_manager.prepare(tempo_map);
 
         // Calculate the max buffer size possible and create a zero buffer
         let mut max_size = 4usize;
@@ -387,10 +380,6 @@ impl Graph {
         playhead: usize,
         playback_ctx: &PlaybackContext,
     ) {
-        // Update the keyframe values for the current playhead position
-        self.keyframe_manager
-            .process(&mut self.keyframe_buffers, playhead, playback_ctx);
-
         // Get the pointer to the output buffer of the input node
         let Some(output_buffers) = self.get_output_ptr(&self.input_id) else {
             return;
@@ -399,7 +388,7 @@ impl Graph {
             return;
         };
         // Process the input node
-        input_node.process(inputs, &output_buffers, playback_ctx);
+        input_node.process(inputs, &output_buffers, playhead, playback_ctx);
 
         for node_id in self.sorted_nodes.clone() {
             // Get the pointer to the input buffer of the node
@@ -413,7 +402,7 @@ impl Graph {
 
             // Pass the pointers and process
             if let Some(node) = self.nodes.get_mut(&node_id) {
-                node.process(&input_buffers, &output_buffers, playback_ctx);
+                node.process(&input_buffers, &output_buffers, playhead, playback_ctx);
             }
         }
 
@@ -426,7 +415,7 @@ impl Graph {
         };
         // Process the output node
         // Output data will be written to the output pointer
-        output_node.process(&input_buffers, outputs, playback_ctx);
+        output_node.process(&input_buffers, outputs, playhead, playback_ctx);
     }
 
     fn get_output_ptr(&self, from: &NodeID) -> Option<Vec<*mut u8>> {

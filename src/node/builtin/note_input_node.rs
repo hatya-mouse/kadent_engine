@@ -2,6 +2,7 @@ use crate::{
     data_types::{EventSlot, PlaybackContext, TypeInfo},
     graph::error::NodeError,
     node::Node,
+    timing::TempoMap,
 };
 use std::ptr::copy_nonoverlapping;
 
@@ -48,7 +49,11 @@ impl Node for NoteInputNode {
         self.data_type = TypeInfo::new(size_of::<EventSlot>(), 4);
     }
 
-    fn prepare(&mut self, _playback_ctx: &PlaybackContext) -> Result<(), Box<dyn NodeError>> {
+    fn prepare(
+        &mut self,
+        _tempo_map: &TempoMap,
+        _playback_ctx: &PlaybackContext,
+    ) -> Result<(), Box<dyn NodeError>> {
         self.data_type = TypeInfo::new(size_of::<EventSlot>(), 4);
         Ok(())
     }
@@ -57,6 +62,7 @@ impl Node for NoteInputNode {
         &mut self,
         inputs: &[*const u8],
         outputs: &[*mut u8],
+        _playhead: usize,
         playback_ctx: &PlaybackContext,
     ) {
         for (input, output) in inputs.iter().zip(outputs.iter()) {
