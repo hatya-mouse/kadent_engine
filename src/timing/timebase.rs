@@ -93,6 +93,21 @@ impl TimeBounds {
         }
     }
 
+    /// Calculates the duration of the time bounds in ticks from the given tempo map.
+    pub fn duration_ticks(&self, tempo_map: &TempoMap) -> Ticks {
+        match *self {
+            TimeBounds::Musical { duration, .. } => duration,
+            TimeBounds::Time {
+                start_seconds,
+                duration_seconds,
+            } => {
+                let start_ticks = tempo_map.seconds_to_ticks(start_seconds);
+                let end_ticks = tempo_map.seconds_to_ticks(start_seconds + duration_seconds);
+                end_ticks - start_ticks
+            }
+        }
+    }
+
     // --- SECONDS CALCULATION ---
 
     /// Calculates the start seconds from the given tempo map.
