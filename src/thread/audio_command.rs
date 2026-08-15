@@ -1,7 +1,7 @@
 use crate::{
     data_types::PlaybackContext,
     mixer::{Project, TrackID},
-    timing::SeekPosition,
+    timing::TimePosition,
     track::error::TrackError,
 };
 use cpal::Device;
@@ -10,7 +10,7 @@ use cpal::Device;
 pub enum AudioCommand {
     Play,
     Pause,
-    Seek(SeekPosition),
+    Seek(TimePosition),
     UpdateProject(Box<Project>),
     ExportAudio(Box<Project>, PlaybackContext),
     ArmTrack(TrackID),

@@ -10,16 +10,16 @@ pub enum Timebase {
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum SeekPosition {
+pub enum TimePosition {
     Musical(Ticks),
     Time(f64),
 }
 
-impl SeekPosition {
+impl TimePosition {
     pub fn to_sample(&self, tempo_map: &TempoMap, sample_rate: u64) -> usize {
         match *self {
-            SeekPosition::Musical(ticks) => tempo_map.ticks_to_samples(ticks, sample_rate),
-            SeekPosition::Time(seconds) => seconds_to_samples(seconds, sample_rate),
+            TimePosition::Musical(ticks) => tempo_map.ticks_to_samples(ticks, sample_rate),
+            TimePosition::Time(seconds) => seconds_to_samples(seconds, sample_rate),
         }
     }
 }
