@@ -7,9 +7,9 @@ pub use region_id::RegionID;
 
 use crate::{
     audio_data::AudioFilePool,
-    data_types::{PlaybackContext, Ticks},
+    data_types::{AudioContext, PlaybackContext},
     graph::Graph,
-    timing::TempoMap,
+    timing::{RegionBounds, TempoMap},
     track::error::TrackError,
 };
 use std::any::Any;
@@ -27,11 +27,8 @@ pub trait Track: Send + Any {
     /// Sets the Graph to the new one.
     fn set_graph(&mut self, graph: Graph);
 
-    /// Moves the audio region to the new start beats.
-    fn move_region(&mut self, region_id: &RegionID, new_start: Ticks);
-
-    /// Changes the duration of the region.
-    fn set_region_duration(&mut self, region_id: &RegionID, new_duration: Ticks);
+    /// Sets the region bounds to the given one.
+    fn set_region_bounds(&mut self, region_id: &RegionID, new_bounds: RegionBounds);
 
     /// Removes the region from the track.
     fn remove_region(&mut self, region_id: &RegionID);
@@ -49,6 +46,7 @@ pub trait Track: Send + Any {
         &mut self,
         audio_pool: &mut AudioFilePool,
         tempo_map: &TempoMap,
+        audio_ctx: &AudioContext,
         playback_ctx: &PlaybackContext,
     ) -> Result<(), TrackError>;
 

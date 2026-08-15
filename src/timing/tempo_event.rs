@@ -5,64 +5,27 @@ use std::cmp::Ordering;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TempoEvent {
     /// The ticks at which the tempo change occurs.
-    pub(super) tick: Ticks,
+    pub tick: Ticks,
     /// The bpm which the event represents.
-    pub(super) bpm: f64,
+    pub bpm: f64,
     /// Cached accumulated event position in seconds.
     #[serde(skip)]
     pub time_seconds: f64,
 }
 
 impl TempoEvent {
-    pub fn new(ticks: Ticks, bpm: f64) -> Self {
+    pub fn new(tick: Ticks, bpm: f64) -> Self {
         Self {
-            ticks,
+            tick,
             bpm,
             time_seconds: 0.0,
         }
-    }
-
-    pub fn ticks(&self) -> Ticks {
-        self.ticks
-    }
-
-    pub fn bpm(&self) -> f64 {
-        self.bpm
-    }
-
-    pub fn time_seconds(&self) -> f64 {
-        self.time_seconds
-    }
-
-    pub fn set_ticks(&mut self, ticks: Ticks) {
-        self.ticks = ticks;
-    }
-
-    pub fn set_bpm(&mut self, bpm: f64, sample_rate: u64, resolution: u64) {
-        self.update_factor(sample_rate, resolution);
-        self.bpm = bpm;
-    }
-
-    /// Updates the cached factors based on the given sample rate and the resolution.
-    pub(super) fn update_factor(&mut self, sample_rate: u64, resolution: u64) {
-        let scale = 1 << 32;
-        self.samples_per_tick_fp = ((60u128 * sample_rate as u128 * scale)
-            / (resolution as u128 * self.bpm as u128)) as u64;
-    }
-
-    /// Converts the given ticks to samples using this `TempoEvent`'s bpm.
-    #[inline]
-    pub(super) fn ticks_to_samples(&self, target_ticks: Ticks) -> usize {
-        let remaining_ticks = target_ticks.0 - self.ticks.0;
-        let remaining_samples =
-            ((remaining_ticks as u128 * self.samples_per_tick_fp as u128) >> 32) as usize;
-        self.sample_offset + remaining_samples
     }
 }
 
 impl PartialEq for TempoEvent {
     fn eq(&self, other: &Self) -> bool {
-        self.ticks == other.ticks
+        self.tick == other.tick
     }
 }
 
@@ -76,9 +39,9 @@ impl PartialOrd for TempoEvent {
 
 impl Ord for TempoEvent {
     fn cmp(&self, other: &Self) -> Ordering {
-        if self.ticks > other.ticks {
+        if self.tick > other.tick {
             Ordering::Greater
-        } else if self.ticks == other.ticks {
+        } else if self.tick == other.tick {
             Ordering::Equal
         } else {
             Ordering::Less

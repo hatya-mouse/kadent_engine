@@ -1,37 +1,34 @@
+use crate::data_types::Ticks;
+
 /// Represents a single section which is separated by tempo changes.
 #[derive(Debug, Clone)]
 pub(crate) struct TempoSection {
-    /// The start sample index of the section in the global sample rate and tempo.
-    pub global_start_sample: usize,
-    /// The end sample index of the section in the global sample rate and tempo.
-    pub global_end_sample: usize,
-    /// The relative start sample index of the section in the local sample rate.
-    pub local_start_sample: usize,
-    /// The relative end sample index of the section in the local sample rate.
-    pub local_end_sample: usize,
-    /// Resampling rate associated with this section, calculated by the following formula.
-    /// Multiply the local sample index by this value to get the sample index in the global sample rate.
-    ///
-    /// ```
-    /// (Source Sample Rate * Source BPM) / (Target Sample Rate * Target BPM)
-    /// ```
-    pub resample_ratio: f64,
+    /// The start tick of the section (inclusive).
+    pub start_tick: Ticks,
+    /// The duration of the section in ticks.
+    pub duration_tick: Ticks,
+    /// The global start sample index of the section (inclusive).
+    pub start_sample: usize,
+    /// The global end sample index of the section (exclusive).
+    pub end_sample: usize,
+    /// The BPM associated with the section.
+    pub bpm: f64,
 }
 
 impl TempoSection {
     pub(crate) fn new(
-        global_start_sample: usize,
-        global_end_sample: usize,
-        local_start_sample: usize,
-        local_end_sample: usize,
-        resample_ratio: f64,
+        start_tick: Ticks,
+        duration_tick: Ticks,
+        start_sample: usize,
+        end_sample: usize,
+        bpm: f64,
     ) -> Self {
         Self {
-            global_start_sample,
-            global_end_sample,
-            local_start_sample,
-            local_end_sample,
-            resample_ratio,
+            start_tick,
+            duration_tick,
+            start_sample,
+            end_sample,
+            bpm,
         }
     }
 }

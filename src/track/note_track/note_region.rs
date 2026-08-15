@@ -1,5 +1,6 @@
 use crate::{
     data_types::Ticks,
+    timing::RegionBounds,
     track::note_track::{Note, NoteID},
 };
 use serde::{Deserialize, Serialize};
@@ -7,8 +8,7 @@ use std::collections::HashMap;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct NoteRegion {
-    pub start: Ticks,
-    pub duration: Ticks,
+    pub bounds: RegionBounds,
     pub notes: HashMap<NoteID, Note>,
 
     next_note_id: u64,
@@ -18,10 +18,9 @@ impl NoteRegion {
     // --- NEW ---
 
     /// Creates a new note region.
-    pub fn new(start: Ticks, duration: Ticks) -> Self {
+    pub fn new(bounds: RegionBounds) -> Self {
         Self {
-            start,
-            duration,
+            bounds,
             notes: HashMap::new(),
             next_note_id: 0,
         }

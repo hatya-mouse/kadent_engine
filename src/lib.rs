@@ -8,6 +8,7 @@ pub mod node;
 pub mod thread;
 pub mod timing;
 pub mod track;
+pub mod utils;
 
 /// Maximum supported number of channels for audio output.
 pub const MAX_CHANNELS: usize = 64;

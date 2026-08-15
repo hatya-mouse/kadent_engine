@@ -1,4 +1,8 @@
-use crate::{data_types::Ticks, timing::TempoEvent};
+use crate::{
+    data_types::Ticks,
+    timing::{TempoEvent, TempoSection},
+    utils::samples_to_seconds,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -88,7 +92,7 @@ impl TempoMap {
 
     /// Recalculates the seconds for the tempo events.
     fn bake(&mut self) {
-        self.events.sort_by_key(|e| e.tick.0);
+        self.events.sort();
         let mut current_time = 0.0;
         let mut prev_tick = 0i64;
         let mut prev_bpm = self.initial_bpm;
@@ -144,13 +148,124 @@ impl TempoMap {
         }
     }
 
+    /// Calculates seconds per tick for the given bpm.
     #[inline]
     fn seconds_per_tick(&self, bpm: f64) -> f64 {
         60.0 / (bpm * self.resolution as f64)
     }
 
+    /// Calculates ticks per second for the given bpm.
     #[inline]
     fn ticks_per_second(&self, bpm: f64) -> f64 {
         bpm * self.resolution as f64 / 60.0
+    }
+
+    // --- SECTION CALCULATION ---
+
+    /// Returns a vector of TempoSection that holds the tempo and the range in it.
+    ///
+    /// # Parameters
+    /// - `start_sample`: The global start sample index of the range.
+    /// - `end_sample`: The global end sample index of the range.
+    /// - `sample_rate`: The global sample rate.
+    pub(crate) fn get_sections_in_range(
+        &self,
+        start_sample: usize,
+        end_sample: usize,
+        sample_rate: u64,
+    ) -> Vec<TempoSection> {
+        let mut sections = Vec::new();
+        let sr = sample_rate as f64;
+        let inv_sr = 1.0 / sr;
+
+        // If there are no events, create a single section with the initial BPM
+        if start_sample >= end_sample || self.events.is_empty() {
+            let start_sec = start_sample as f64 * inv_sr;
+            let end_sec = end_sample as f64 * inv_sr;
+            let start_tick = self.seconds_to_ticks(start_sec);
+            let end_tick = self.seconds_to_ticks(end_sec);
+
+            sections.push(TempoSection::new(
+                start_tick,
+                end_tick - start_tick,
+                start_sample,
+                end_sample,
+                self.initial_bpm,
+            ));
+            return sections;
+        }
+
+        // Calculate where to start iterating over the tempo events
+        let start_seconds = samples_to_seconds(start_sample, sample_rate);
+        let start_index = self
+            .events
+            .partition_point(|e| e.time_seconds <= start_seconds);
+        let mut current_sample = start_sample;
+
+        // If the start_sample is before the first event, create a section with the initial BPM
+        // |      |                           * TempoEvent
+        // |      |<-- initial BPM section -->|<--
+        // 0      ^ start_sample              ^ section_end
+        let first_event_sample = (self.events[0].time_seconds * sr).round() as usize;
+        if start_index == 0 && current_sample < first_event_sample {
+            let section_end = end_sample.min(first_event_sample);
+            if current_sample < section_end {
+                let start_sec = current_sample as f64 * inv_sr;
+                let end_sec = section_end as f64 * inv_sr;
+                let start_tick = self.seconds_to_ticks(start_sec);
+                let end_tick = self.seconds_to_ticks(end_sec);
+
+                sections.push(TempoSection::new(
+                    start_tick,
+                    end_tick - start_tick,
+                    current_sample,
+                    section_end,
+                    self.initial_bpm,
+                ));
+
+                // Use the section_end as the new current_sample for the next iteration
+                current_sample = section_end;
+            }
+
+            if current_sample >= end_sample {
+                return sections;
+            }
+        }
+
+        // Loop over the tempo change events and create sections
+        let event_start_idx = if start_index == 0 { 0 } else { start_index - 1 };
+        for i in event_start_idx..self.events.len() {
+            let bpm = self.events[i].bpm;
+            let next_event_sample = self
+                .events
+                .get(i + 1)
+                .map(|e| (e.time_seconds * sample_rate as f64).round() as usize)
+                .unwrap_or(usize::MAX);
+            let section_end = next_event_sample.min(end_sample);
+
+            if current_sample < section_end {
+                let start_sec = current_sample as f64 / sr;
+                let end_sec = section_end as f64 / sr;
+                let start_tick = self.seconds_to_ticks(start_sec);
+                let end_tick = self.seconds_to_ticks(end_sec);
+
+                sections.push(TempoSection::new(
+                    start_tick,
+                    end_tick - start_tick,
+                    current_sample,
+                    section_end,
+                    bpm,
+                ));
+
+                // Use the section_end as the new current_sample for the next iteration
+                current_sample = section_end;
+            }
+
+            if current_sample >= end_sample {
+                break;
+            }
+        }
+
+        sections
     }
 }

@@ -1,3 +1,11 @@
+/// Resamples the audio data from the source buffer using linear interpolation and writes the result to the destination buffer.
+///
+/// # Parameters
+/// - `source`: A slice of f32 values representing the source audio data (interleaved).
+/// - `destination_buffer`: A mutable reference to a vector of f32 values where the result will be stored.
+/// - `dst_samples`: The number of samples to write to the destination buffer.
+/// - `channels`: The number of channels in the audio data.
+/// - `ratio`: The resampling ratio (destination sample rate / source sample rate).
 pub fn resample_channels(
     source: &[f32],
     destination_buffer: &mut Vec<f32>,
