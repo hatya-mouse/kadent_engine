@@ -56,6 +56,32 @@ pub enum AutomationTrack {
 }
 
 impl AutomationTrack {
+    // --- INITIALIZATION ---
+
+    pub fn new_float() -> Self {
+        AutomationTrack::Float {
+            keyframes: Vec::new(),
+            keyframe_samples: Vec::new(),
+            float_cursor: FloatAutomationCursor::default(),
+        }
+    }
+
+    pub fn new_int() -> Self {
+        AutomationTrack::Int {
+            keyframes: Vec::new(),
+            keyframe_samples: Vec::new(),
+            automation_cursor: ConstantAutomationCursor::default(),
+        }
+    }
+
+    pub fn new_bool() -> Self {
+        AutomationTrack::Bool {
+            keyframes: Vec::new(),
+            keyframe_samples: Vec::new(),
+            automation_cursor: ConstantAutomationCursor::default(),
+        }
+    }
+
     // --- VALUE SIZE ---
 
     pub fn size_of_value(&self) -> usize {
