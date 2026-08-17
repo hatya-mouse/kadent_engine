@@ -1,10 +1,19 @@
 /// Represents the size and alignment of a type in memory.
 /// `sample_size` represents the size of the value for a single sample, so you need to multiply it by the buffer size
 /// to get the actual size of the buffer.
-#[derive(Default, Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct TypeInfo {
     pub sample_size: usize,
     pub align: usize,
+}
+
+impl Default for TypeInfo {
+    fn default() -> Self {
+        Self {
+            sample_size: 0,
+            align: 1,
+        }
+    }
 }
 
 impl TypeInfo {

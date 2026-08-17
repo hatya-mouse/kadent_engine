@@ -18,9 +18,20 @@ use crate::{
 #[derive(Clone)]
 pub struct AutomationNode {
     /// The automation track that stores keyframes.
-    track: AutomationTrack,
+    pub track: AutomationTrack,
     /// The cached data type of the output value.
     output_type: TypeInfo,
+}
+
+impl AutomationNode {
+    pub fn new(track: AutomationTrack) -> Self {
+        let mut node = Self {
+            track,
+            output_type: TypeInfo::default(),
+        };
+        node.update_type_info();
+        node
+    }
 }
 
 impl Node for AutomationNode {
