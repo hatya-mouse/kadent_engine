@@ -1,13 +1,13 @@
 use crate::{
     audio_data::AudioFilePool,
     data_types::PlaybackContext,
-    mixer::{Mixer, Project},
+    mixer::{Mixer, ProjectData},
     thread::{AudioError, AudioResult},
 };
 use std::sync::{Arc, Condvar, Mutex, mpsc};
 
 pub enum PreparationThreadRequest {
-    PrepareProject(Box<Project>, PlaybackContext),
+    PrepareProject(Box<ProjectData>, PlaybackContext),
     Terminate,
 }
 
@@ -24,7 +24,7 @@ impl PrepareState {
         }
     }
 
-    pub fn request_preparation(&self, project: Box<Project>, playback_ctx: PlaybackContext) {
+    pub fn request_preparation(&self, project: Box<ProjectData>, playback_ctx: PlaybackContext) {
         let mut guard = self.request.lock().unwrap();
         *guard = Some(PreparationThreadRequest::PrepareProject(
             project,

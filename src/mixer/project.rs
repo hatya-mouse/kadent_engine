@@ -8,7 +8,7 @@ use crate::{
 use std::collections::HashMap;
 
 #[derive(Clone)]
-pub struct Project {
+pub struct ProjectData {
     // --- TRACKS ---
     /// Tracks in the project.
     pub tracks: HashMap<TrackID, Box<dyn Track>>,
@@ -30,7 +30,7 @@ pub struct Project {
     next_track_id: u64,
 }
 
-impl Project {
+impl ProjectData {
     // --- NEW ---
 
     /// Creates a new project with the specified initial bpm.

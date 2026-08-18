@@ -1,7 +1,7 @@
 mod project;
 mod track_id;
 
-pub use project::Project;
+pub use project::ProjectData;
 pub use track_id::TrackID;
 
 use crate::{MAX_CHANNELS, data_types::PlaybackContext};
@@ -9,7 +9,7 @@ use rayon::iter::{ParallelBridge, ParallelIterator};
 
 pub struct Mixer {
     // --- PROJECT ---
-    pub project: Project,
+    pub project: ProjectData,
     // --- PLAYBACK CONTEXT ---
     pub playback_ctx: PlaybackContext,
 }
@@ -18,7 +18,7 @@ impl Mixer {
     // --- NEW ---
 
     /// Creates a new mixer instance with the given project.
-    pub fn new(project: Project, playback_ctx: PlaybackContext) -> Self {
+    pub fn new(project: ProjectData, playback_ctx: PlaybackContext) -> Self {
         Self {
             project,
             playback_ctx,

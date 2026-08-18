@@ -1,6 +1,6 @@
 use crate::{
     data_types::PlaybackContext,
-    mixer::{Project, TrackID},
+    mixer::{ProjectData, TrackID},
     timing::TimePosition,
     track::error::TrackError,
 };
@@ -11,8 +11,8 @@ pub enum AudioCommand {
     Play,
     Pause,
     Seek(TimePosition),
-    UpdateProject(Box<Project>),
-    ExportAudio(Box<Project>, PlaybackContext),
+    UpdateProject(Box<ProjectData>),
+    ExportAudio(Box<ProjectData>, PlaybackContext),
     ArmTrack(TrackID),
     SetOutputDevice(Device),
     SetPlaybackCtx(PlaybackContext),

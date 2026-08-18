@@ -1,14 +1,14 @@
 use crate::{
     audio_data::AudioFilePool,
     data_types::PlaybackContext,
-    mixer::Project,
+    mixer::ProjectData,
     thread::{AudioError, AudioResult},
 };
 use std::{sync::mpsc, thread};
 
 pub(super) fn spawn_export_thread(
     result_tx: mpsc::Sender<Result<AudioResult, AudioError>>,
-    project: Project,
+    project: ProjectData,
     playback_ctx: PlaybackContext,
 ) {
     let result_tx_clone = result_tx.clone();
