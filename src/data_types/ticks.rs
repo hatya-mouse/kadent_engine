@@ -6,6 +6,10 @@ use std::ops::{Add, Div, Mul, Sub};
 #[derive(Default, Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Ticks(pub i64);
 
+impl Ticks {
+    pub const ZERO: Ticks = Ticks(0);
+}
+
 impl Add for Ticks {
     type Output = Self;
 
