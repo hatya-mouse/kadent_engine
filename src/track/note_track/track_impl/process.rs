@@ -18,18 +18,18 @@ impl NoteTrack {
         // Convert the local start Ticks to global Ticks by adding the start of the region
         for (_, region) in self.regions.iter() {
             let (region_start, region_end) = region.bounds.tick_range(tempo_map);
-            let region_duration = (region_end - region_start).max(Ticks(0));
+            let region_duration = (region_end - region_start).max(Ticks::ZERO);
 
             for (_, note) in region.notes.iter() {
                 // If the start of the note is after the end of the region
                 // ...or if the end of the note is before the start of the region, skip it
                 let note_end = note.start + note.duration;
-                if note.start > region_duration || note_end < Ticks(0) {
+                if note.start > region_duration || note_end < Ticks::ZERO {
                     continue;
                 }
 
                 // If the start of the note is before the start of the region, clamp it
-                let clamped_start = note.start.max(Ticks(0));
+                let clamped_start = note.start.max(Ticks::ZERO);
                 let absolute_start = clamped_start + region_start;
                 // If the end of the note is after the end of the region, clamp it
                 let clamped_duration = note_end.min(region_duration) - clamped_start;
