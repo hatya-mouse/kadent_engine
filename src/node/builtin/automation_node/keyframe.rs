@@ -11,6 +11,12 @@ pub struct Keyframe<T> {
     pub value: T,
 }
 
+impl<T> Keyframe<T> {
+    pub fn new(tick: Ticks, curve: CurveType, value: T) -> Self {
+        Self { tick, curve, value }
+    }
+}
+
 pub trait AutomationTarget: Sized {
     fn keyframes(track: &AutomationTrack) -> Option<&[Keyframe<Self>]>;
 
