@@ -1,18 +1,15 @@
 use crate::{
     data_types::{PlaybackContext, Ticks},
-    node::builtin::automation_node::{
-        CurveType, constant::ConstantAutomationCursor, float::FloatAutomationCursor,
+    node::builtin::{
+        Keyframe,
+        automation_node::{
+            AutomationTarget, constant::ConstantAutomationCursor, float::FloatAutomationCursor,
+        },
     },
     timing::TempoMap,
 };
 use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Keyframe<T> {
-    pub ticks: Ticks,
-    pub curve: CurveType,
-    pub value: T,
-}
+use std::ops::{Range, RangeInclusive};
 
 /// A track that stores keyframes for a specific node and input index.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,6 +19,8 @@ pub enum AutomationTrack {
     Float {
         /// The vector of keyframes, sorted by ticks.
         keyframes: Vec<Keyframe<f32>>,
+        /// Inclusive range of the keyframe values, used for clamping the output values.
+        range: RangeInclusive<f32>,
         /// Cached sample indices of the keyframes, sorted in the order of the keyframe index.
         #[serde(skip)]
         keyframe_samples: Vec<usize>,
@@ -34,6 +33,8 @@ pub enum AutomationTrack {
     Int {
         /// The vector of keyframes, sorted by ticks.
         keyframes: Vec<Keyframe<i32>>,
+        /// Inclusive range of the keyframe values, used for clamping the output values.
+        range: RangeInclusive<i32>,
         /// Cached sample indices of the keyframes, sorted in the order of the keyframe index.
         #[serde(skip)]
         keyframe_samples: Vec<usize>,
@@ -58,17 +59,19 @@ pub enum AutomationTrack {
 impl AutomationTrack {
     // --- INITIALIZATION ---
 
-    pub fn new_float() -> Self {
+    pub fn new_float(range: RangeInclusive<f32>) -> Self {
         AutomationTrack::Float {
             keyframes: Vec::new(),
+            range,
             keyframe_samples: Vec::new(),
             float_cursor: FloatAutomationCursor::default(),
         }
     }
 
-    pub fn new_int() -> Self {
+    pub fn new_int(range: RangeInclusive<i32>) -> Self {
         AutomationTrack::Int {
             keyframes: Vec::new(),
+            range,
             keyframe_samples: Vec::new(),
             automation_cursor: ConstantAutomationCursor::default(),
         }
@@ -82,13 +85,59 @@ impl AutomationTrack {
         }
     }
 
-    // --- VALUE SIZE ---
+    // --- ITERATOR ---
 
-    pub fn size_of_value(&self) -> usize {
+    /// Returns an iterator over the keyframes in the given tick range and the last and first keyframes outside the range.
+    pub fn for_each_around_range(&self, tick_range: Range<Ticks>) {
         match self {
-            AutomationTrack::Float { .. } => std::mem::size_of::<f32>(),
-            AutomationTrack::Int { .. } => std::mem::size_of::<i32>(),
-            AutomationTrack::Bool { .. } => std::mem::size_of::<bool>(),
+            AutomationTrack::Float {
+                keyframes, range, ..
+            } => {
+                let range = (range.end() - range.start()).max(1e-6);
+            }
+        }
+    }
+
+    /// Returns the index of the first keyframe that is greater than or equal to the given tick range.
+    fn keyframe_partition_point(&self, tick_range: Ticks) -> usize {
+        match self {
+            AutomationTrack::Float { keyframes, .. } => {
+                keyframes.partition_point(|keyframe| keyframe.tick < tick_range)
+            }
+            AutomationTrack::Int { keyframes, .. } => {
+                keyframes.partition_point(|keyframe| keyframe.tick < tick_range)
+            }
+            AutomationTrack::Bool { keyframes, .. } => {
+                keyframes.partition_point(|keyframe| keyframe.tick < tick_range)
+            }
+        }
+    }
+
+    // --- MODIFICATION ---
+
+    /// Returns a mutable reference to the float keyframes vector.
+    pub fn get_float_keyframes_mut(&mut self) -> Option<&mut Vec<Keyframe<f32>>> {
+        f32::keyframes_mut(self)
+    }
+
+    /// Returns a mutable reference to the integer keyframes vector.
+    pub fn get_int_keyframes_mut(&mut self) -> Option<&mut Vec<Keyframe<i32>>> {
+        i32::keyframes_mut(self)
+    }
+
+    /// Returns a mutable reference to the boolean keyframes vector.
+    pub fn get_bool_keyframes_mut(&mut self) -> Option<&mut Vec<Keyframe<bool>>> {
+        bool::keyframes_mut(self)
+    }
+
+    /// Adds a new keyframe to the track, maintaining the sorted order by ticks.
+    pub fn add_keyframe<T>(&mut self, keyframe: Keyframe<T>)
+    where
+        T: AutomationTarget,
+    {
+        let index = self.keyframe_partition_point(keyframe.tick);
+        if let Some(keyframes) = T::keyframes_mut(self) {
+            keyframes.insert(index, keyframe);
         }
     }
 
@@ -100,25 +149,27 @@ impl AutomationTrack {
         match self {
             AutomationTrack::Float {
                 keyframes,
+                range: _,
                 keyframe_samples,
                 float_cursor,
             } => {
                 float_cursor.clear_cache();
 
                 // Sort the keyframes by its ticks to ensure they are in the correct order for processing
-                keyframes.sort_by_key(|k| k.ticks.0);
+                keyframes.sort_by_key(|k| k.tick.0);
 
                 // Calculate the sample indices of the keyframes based on the tempo map and sample rate
                 keyframe_samples.clear();
                 keyframe_samples.reserve(keyframes.len());
 
                 for keyframe in keyframes.iter() {
-                    let sample = tempo_map.ticks_to_samples(keyframe.ticks, sample_rate);
+                    let sample = tempo_map.ticks_to_samples(keyframe.tick, sample_rate);
                     keyframe_samples.push(sample);
                 }
             }
             AutomationTrack::Int {
                 keyframes,
+                range: _,
                 keyframe_samples,
                 automation_cursor,
             } => {
@@ -126,7 +177,7 @@ impl AutomationTrack {
                 automation_cursor.clear_cache();
                 *keyframe_samples = keyframes
                     .iter()
-                    .map(|keyframe| tempo_map.ticks_to_samples(keyframe.ticks, sample_rate))
+                    .map(|keyframe| tempo_map.ticks_to_samples(keyframe.tick, sample_rate))
                     .collect();
             }
             AutomationTrack::Bool {
@@ -138,7 +189,7 @@ impl AutomationTrack {
                 automation_cursor.clear_cache();
                 *keyframe_samples = keyframes
                     .iter()
-                    .map(|keyframe| tempo_map.ticks_to_samples(keyframe.ticks, sample_rate))
+                    .map(|keyframe| tempo_map.ticks_to_samples(keyframe.tick, sample_rate))
                     .collect();
             }
         }
@@ -150,26 +201,27 @@ impl AutomationTrack {
         match self {
             AutomationTrack::Float {
                 keyframes,
+                range,
                 keyframe_samples,
                 float_cursor,
             } => {
                 for (sample, chunk) in (playhead..buffer_end).zip(buffer.chunks_exact_mut(4)) {
-                    let value =
-                        float_cursor.get_interpolated_value(keyframes, keyframe_samples, sample);
+                    let value = float_cursor
+                        .get_interpolated_value(keyframes, keyframe_samples, sample)
+                        .clamp(*range.start(), *range.end());
                     chunk.copy_from_slice(&value.to_ne_bytes());
                 }
             }
             AutomationTrack::Int {
                 keyframes,
+                range,
                 keyframe_samples,
                 automation_cursor,
             } => {
                 for (sample, chunk) in (playhead..buffer_end).zip(buffer.chunks_exact_mut(4)) {
-                    let value = automation_cursor.get_constant_keyframe_value::<i32>(
-                        keyframes,
-                        keyframe_samples,
-                        sample,
-                    );
+                    let value = automation_cursor
+                        .get_constant_keyframe_value::<i32>(keyframes, keyframe_samples, sample)
+                        .clamp(*range.start(), *range.end());
                     chunk.copy_from_slice(&value.to_ne_bytes());
                 }
             }

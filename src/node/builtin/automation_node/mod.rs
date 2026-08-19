@@ -1,12 +1,14 @@
 mod constant;
 mod curve;
 mod float;
+mod keyframe;
 mod track;
 
 use std::slice;
 
 pub use curve::CurveType;
-pub use track::{AutomationTrack, Keyframe};
+pub use keyframe::{AutomationTarget, Keyframe};
+pub use track::AutomationTrack;
 
 use crate::{
     data_types::{PlaybackContext, TypeInfo},
