@@ -12,10 +12,20 @@ pub struct Keyframe<T> {
 }
 
 pub trait AutomationTarget: Sized {
+    fn keyframes(track: &AutomationTrack) -> Option<&[Keyframe<Self>]>;
+
     fn keyframes_mut(track: &mut AutomationTrack) -> Option<&mut Vec<Keyframe<Self>>>;
 }
 
 impl AutomationTarget for f32 {
+    fn keyframes(track: &AutomationTrack) -> Option<&[Keyframe<Self>]> {
+        if let AutomationTrack::Float { keyframes, .. } = track {
+            Some(keyframes)
+        } else {
+            None
+        }
+    }
+
     fn keyframes_mut(track: &mut AutomationTrack) -> Option<&mut Vec<Keyframe<Self>>> {
         if let AutomationTrack::Float { keyframes, .. } = track {
             Some(keyframes)
@@ -26,6 +36,14 @@ impl AutomationTarget for f32 {
 }
 
 impl AutomationTarget for i32 {
+    fn keyframes(track: &AutomationTrack) -> Option<&[Keyframe<Self>]> {
+        if let AutomationTrack::Int { keyframes, .. } = track {
+            Some(keyframes)
+        } else {
+            None
+        }
+    }
+
     fn keyframes_mut(track: &mut AutomationTrack) -> Option<&mut Vec<Keyframe<Self>>> {
         if let AutomationTrack::Int { keyframes, .. } = track {
             Some(keyframes)
@@ -36,6 +54,14 @@ impl AutomationTarget for i32 {
 }
 
 impl AutomationTarget for bool {
+    fn keyframes(track: &AutomationTrack) -> Option<&[Keyframe<Self>]> {
+        if let AutomationTrack::Bool { keyframes, .. } = track {
+            Some(keyframes)
+        } else {
+            None
+        }
+    }
+
     fn keyframes_mut(track: &mut AutomationTrack) -> Option<&mut Vec<Keyframe<Self>>> {
         if let AutomationTrack::Bool { keyframes, .. } = track {
             Some(keyframes)

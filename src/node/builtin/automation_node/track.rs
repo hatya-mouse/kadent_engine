@@ -87,15 +87,66 @@ impl AutomationTrack {
 
     // --- ITERATOR ---
 
-    /// Returns an iterator over the keyframes in the given tick range and the last and first keyframes outside the range.
-    pub fn for_each_around_range(&self, tick_range: Range<Ticks>) {
+    /// Returns an iterator over the float representation of the value in the given tick range and the last and the first keyframes outside the range.
+    pub fn for_each_normalized_around(&self, tick_range: Range<Ticks>, mut f: impl FnMut(f32)) {
         match self {
             AutomationTrack::Float {
                 keyframes, range, ..
             } => {
+                let min = *range.start();
                 let range = (range.end() - range.start()).max(1e-6);
+                Self::keyframes_around_range(keyframes, tick_range)
+                    .into_iter()
+                    .flatten()
+                    .for_each(|keyframe| {
+                        let normalized = (keyframe.value - min) / range;
+                        f(normalized);
+                    });
+            }
+            AutomationTrack::Int {
+                keyframes, range, ..
+            } => {
+                let min = *range.start();
+                let range = ((range.end() - range.start()) as f32).max(1e-6);
+                Self::keyframes_around_range(keyframes, tick_range)
+                    .into_iter()
+                    .flatten()
+                    .for_each(|keyframe| {
+                        let normalized = (keyframe.value - min) as f32 / range;
+                        f(normalized);
+                    });
+            }
+            AutomationTrack::Bool { keyframes, .. } => {
+                Self::keyframes_around_range(keyframes, tick_range)
+                    .into_iter()
+                    .flatten()
+                    .for_each(|keyframe| {
+                        let normalized = if keyframe.value { 1.0 } else { 0.0 };
+                        f(normalized);
+                    });
             }
         }
+    }
+
+    /// Returns an slice to the keyframes in the given tick range and the last and the first keyframes outside the range.
+    fn keyframes_around_range<T>(
+        keyframes: &[Keyframe<T>],
+        tick_range: Range<Ticks>,
+    ) -> Option<&[Keyframe<T>]> {
+        // Return if there are no keyframes
+        if keyframes.is_empty() {
+            return Some(keyframes);
+        }
+
+        let first_index = keyframes
+            .partition_point(|k| k.tick < tick_range.start)
+            .saturating_sub(1);
+        let last_index = keyframes
+            .partition_point(|k| k.tick < tick_range.end)
+            .saturating_add(1)
+            .min(keyframes.len());
+
+        Some(&keyframes[first_index..last_index])
     }
 
     /// Returns the index of the first keyframe that is greater than or equal to the given tick range.

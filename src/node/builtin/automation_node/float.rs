@@ -1,5 +1,4 @@
 use crate::node::builtin::Keyframe;
-use std::ops::RangeInclusive;
 
 /// An automation cursor that keeps track of the current index in a list of gradient values.
 /// This is solely used to interpolate between **float** keyframes, not integer or boolean keyframes.
