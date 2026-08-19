@@ -88,7 +88,11 @@ impl AutomationTrack {
     // --- ITERATOR ---
 
     /// Returns an iterator over the float representation of the value in the given tick range and the last and the first keyframes outside the range.
-    pub fn for_each_normalized_around(&self, tick_range: Range<Ticks>, mut f: impl FnMut(f32)) {
+    pub fn for_each_normalized_around(
+        &self,
+        tick_range: Range<Ticks>,
+        mut f: impl FnMut(Ticks, f32),
+    ) {
         match self {
             AutomationTrack::Float {
                 keyframes, range, ..
@@ -100,7 +104,7 @@ impl AutomationTrack {
                     .flatten()
                     .for_each(|keyframe| {
                         let normalized = (keyframe.value - min) / range;
-                        f(normalized);
+                        f(keyframe.tick, normalized);
                     });
             }
             AutomationTrack::Int {
@@ -113,7 +117,7 @@ impl AutomationTrack {
                     .flatten()
                     .for_each(|keyframe| {
                         let normalized = (keyframe.value - min) as f32 / range;
-                        f(normalized);
+                        f(keyframe.tick, normalized);
                     });
             }
             AutomationTrack::Bool { keyframes, .. } => {
@@ -122,7 +126,7 @@ impl AutomationTrack {
                     .flatten()
                     .for_each(|keyframe| {
                         let normalized = if keyframe.value { 1.0 } else { 0.0 };
-                        f(normalized);
+                        f(keyframe.tick, normalized);
                     });
             }
         }
