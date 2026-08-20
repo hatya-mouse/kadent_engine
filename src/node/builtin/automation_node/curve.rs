@@ -29,4 +29,12 @@ impl CurveType {
             }
         }
     }
+
+    pub fn all() -> &'static [CurveType] {
+        &[
+            CurveType::Linear,
+            CurveType::Step,
+            CurveType::Smooth { tension: 1.0 },
+        ]
+    }
 }

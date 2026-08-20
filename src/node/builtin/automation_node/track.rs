@@ -3,8 +3,7 @@ use crate::{
     node::builtin::{
         Keyframe,
         automation_node::{
-            AutomationTarget, NormalizedKeyframe, constant::ConstantAutomationCursor,
-            float::FloatAutomationCursor,
+            NormalizedKeyframe, constant::ConstantAutomationCursor, float::FloatAutomationCursor,
         },
     },
     timing::TempoMap,
