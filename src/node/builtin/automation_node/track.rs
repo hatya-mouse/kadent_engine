@@ -230,6 +230,27 @@ impl AutomationTrack {
         index
     }
 
+    /// Removes a keyframe at the specified index from the track.
+    pub fn remove_keyframe(&mut self, index: usize) {
+        match self {
+            AutomationTrack::Float { keyframes, .. } => {
+                if index < keyframes.len() {
+                    keyframes.remove(index);
+                }
+            }
+            AutomationTrack::Int { keyframes, .. } => {
+                if index < keyframes.len() {
+                    keyframes.remove(index);
+                }
+            }
+            AutomationTrack::Bool { keyframes, .. } => {
+                if index < keyframes.len() {
+                    keyframes.remove(index);
+                }
+            }
+        }
+    }
+
     // --- CALCULATION ---
 
     pub fn prepare(&mut self, tempo_map: &TempoMap, playback_ctx: &PlaybackContext) {
