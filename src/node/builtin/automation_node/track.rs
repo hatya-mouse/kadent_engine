@@ -219,7 +219,7 @@ impl AutomationTrack {
     }
 
     /// Adds a new keyframe to the track, maintaining the sorted order by ticks.
-    pub fn add_keyframe<T>(&mut self, keyframe: Keyframe<T>)
+    pub fn add_keyframe<T>(&mut self, keyframe: Keyframe<T>) -> usize
     where
         T: AutomationTarget,
     {
@@ -227,6 +227,7 @@ impl AutomationTrack {
         if let Some(keyframes) = T::keyframes_mut(self) {
             keyframes.insert(index, keyframe);
         }
+        index
     }
 
     // --- CALCULATION ---
