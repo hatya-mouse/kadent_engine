@@ -1,7 +1,7 @@
 use crate::{
     data_types::{PlaybackContext, Ticks},
     node::builtin::{
-        Keyframe,
+        CurveType, Keyframe,
         automation_node::{
             AutomationTarget, constant::ConstantAutomationCursor, float::FloatAutomationCursor,
         },
@@ -91,7 +91,7 @@ impl AutomationTrack {
     pub fn for_each_normalized_around(
         &self,
         tick_range: Range<Ticks>,
-        mut f: impl FnMut(Ticks, f32),
+        mut f: impl FnMut(Ticks, CurveType, f32),
     ) {
         match self {
             AutomationTrack::Float {
@@ -104,7 +104,7 @@ impl AutomationTrack {
                     .flatten()
                     .for_each(|keyframe| {
                         let normalized = (keyframe.value - min) / range;
-                        f(keyframe.tick, normalized);
+                        f(keyframe.tick, keyframe.curve, normalized);
                     });
             }
             AutomationTrack::Int {
@@ -117,7 +117,7 @@ impl AutomationTrack {
                     .flatten()
                     .for_each(|keyframe| {
                         let normalized = (keyframe.value - min) as f32 / range;
-                        f(keyframe.tick, normalized);
+                        f(keyframe.tick, keyframe.curve, normalized);
                     });
             }
             AutomationTrack::Bool { keyframes, .. } => {
@@ -126,7 +126,7 @@ impl AutomationTrack {
                     .flatten()
                     .for_each(|keyframe| {
                         let normalized = if keyframe.value { 1.0 } else { 0.0 };
-                        f(keyframe.tick, normalized);
+                        f(keyframe.tick, keyframe.curve, normalized);
                     });
             }
         }
