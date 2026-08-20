@@ -203,21 +203,6 @@ impl AutomationTrack {
 
     // --- MODIFICATION ---
 
-    /// Returns a mutable reference to the float keyframes vector.
-    pub fn get_float_keyframes_mut(&mut self) -> Option<&mut Vec<Keyframe<f32>>> {
-        f32::keyframes_mut(self)
-    }
-
-    /// Returns a mutable reference to the integer keyframes vector.
-    pub fn get_int_keyframes_mut(&mut self) -> Option<&mut Vec<Keyframe<i32>>> {
-        i32::keyframes_mut(self)
-    }
-
-    /// Returns a mutable reference to the boolean keyframes vector.
-    pub fn get_bool_keyframes_mut(&mut self) -> Option<&mut Vec<Keyframe<bool>>> {
-        bool::keyframes_mut(self)
-    }
-
     /// Adds a new keyframe to the track, maintaining the sorted order by ticks.
     pub fn add_keyframe<T>(&mut self, keyframe: Keyframe<T>) -> usize
     where
@@ -248,6 +233,33 @@ impl AutomationTrack {
                     keyframes.remove(index);
                 }
             }
+        }
+    }
+
+    /// Sets a new float value for the keyframe at the specified index.
+    pub fn set_float_value(&mut self, index: usize, value: f32) {
+        if let AutomationTrack::Float { keyframes, .. } = self
+            && let Some(keyframe) = keyframes.get_mut(index)
+        {
+            keyframe.value = value;
+        }
+    }
+
+    /// Sets a new int value for the keyframe at the specified index.
+    pub fn set_int_value(&mut self, index: usize, value: i32) {
+        if let AutomationTrack::Int { keyframes, .. } = self
+            && let Some(keyframe) = keyframes.get_mut(index)
+        {
+            keyframe.value = value;
+        }
+    }
+
+    /// Sets a new bool value for the keyframe at the specified index.
+    pub fn set_bool_value(&mut self, index: usize, value: bool) {
+        if let AutomationTrack::Bool { keyframes, .. } = self
+            && let Some(keyframe) = keyframes.get_mut(index)
+        {
+            keyframe.value = value;
         }
     }
 
