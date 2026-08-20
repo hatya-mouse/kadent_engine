@@ -87,12 +87,11 @@ impl AutomationTrack {
 
     // --- ITERATOR ---
 
-    /// Returns an iterator over the float representation of the value in the given tick range and the last and the first keyframes outside the range.
-    pub fn for_each_normalized_around(
+    /// Returns an vector over the float representation of the value in the given tick range and the last and the first keyframes outside the range.
+    pub fn normalized_keyframes_around(
         &self,
         tick_range: Range<Ticks>,
-        mut f: impl FnMut(Ticks, CurveType, f32),
-    ) {
+    ) -> Vec<(Ticks, CurveType, f32)> {
         match self {
             AutomationTrack::Float {
                 keyframes, range, ..
@@ -102,10 +101,11 @@ impl AutomationTrack {
                 Self::keyframes_around_range(keyframes, tick_range)
                     .into_iter()
                     .flatten()
-                    .for_each(|keyframe| {
+                    .map(|keyframe| {
                         let normalized = (keyframe.value - min) / range;
-                        f(keyframe.tick, keyframe.curve, normalized);
-                    });
+                        (keyframe.tick, keyframe.curve, normalized)
+                    })
+                    .collect()
             }
             AutomationTrack::Int {
                 keyframes, range, ..
@@ -115,19 +115,21 @@ impl AutomationTrack {
                 Self::keyframes_around_range(keyframes, tick_range)
                     .into_iter()
                     .flatten()
-                    .for_each(|keyframe| {
+                    .map(|keyframe| {
                         let normalized = (keyframe.value - min) as f32 / range;
-                        f(keyframe.tick, keyframe.curve, normalized);
-                    });
+                        (keyframe.tick, keyframe.curve, normalized)
+                    })
+                    .collect()
             }
             AutomationTrack::Bool { keyframes, .. } => {
                 Self::keyframes_around_range(keyframes, tick_range)
                     .into_iter()
                     .flatten()
-                    .for_each(|keyframe| {
+                    .map(|keyframe| {
                         let normalized = if keyframe.value { 1.0 } else { 0.0 };
-                        f(keyframe.tick, keyframe.curve, normalized);
-                    });
+                        (keyframe.tick, keyframe.curve, normalized)
+                    })
+                    .collect()
             }
         }
     }
