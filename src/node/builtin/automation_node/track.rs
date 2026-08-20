@@ -145,7 +145,7 @@ impl AutomationTrack {
         }
 
         let first_index = keyframes
-            .partition_point(|k| k.tick < tick_range.start)
+            .partition_point(|k| tick_range.start < k.tick)
             .saturating_sub(1);
         let last_index = keyframes
             .partition_point(|k| k.tick < tick_range.end)
