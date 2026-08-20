@@ -230,13 +230,36 @@ impl AutomationTrack {
 
     // --- MODIFICATION ---
 
-    /// Adds a new keyframe to the track, maintaining the sorted order by ticks.
-    pub fn add_float_keyframe<T>(&mut self, keyframe: Keyframe<T>) -> usize
-    where
-        T: AutomationTarget,
-    {
+    /// Adds a new float keyframe to the track, maintaining the sorted order by ticks.
+    pub fn add_float_keyframe(&mut self, mut keyframe: Keyframe<f32>) -> usize {
         let index = self.keyframe_partition_point(keyframe.tick);
-        if let Some(keyframes) = T::keyframes_mut(self) {
+        if let AutomationTrack::Float {
+            keyframes, range, ..
+        } = self
+        {
+            keyframe.value = keyframe.value.clamp(*range.start(), *range.end());
+            keyframes.insert(index, keyframe);
+        }
+        index
+    }
+
+    /// Adds a new int keyframe to the track, maintaining the sorted order by ticks.
+    pub fn add_int_keyframe(&mut self, mut keyframe: Keyframe<i32>) -> usize {
+        let index = self.keyframe_partition_point(keyframe.tick);
+        if let AutomationTrack::Int {
+            keyframes, range, ..
+        } = self
+        {
+            keyframe.value = keyframe.value.clamp(*range.start(), *range.end());
+            keyframes.insert(index, keyframe);
+        }
+        index
+    }
+
+    /// Adds a new bool keyframe to the track, maintaining the sorted order by ticks.
+    pub fn add_bool_keyframe(&mut self, keyframe: Keyframe<bool>) -> usize {
+        let index = self.keyframe_partition_point(keyframe.tick);
+        if let AutomationTrack::Bool { keyframes, .. } = self {
             keyframes.insert(index, keyframe);
         }
         index
