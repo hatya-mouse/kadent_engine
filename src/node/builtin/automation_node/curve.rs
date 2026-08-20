@@ -37,4 +37,13 @@ impl CurveType {
             CurveType::Smooth { tension: 1.0 },
         ]
     }
+
+    pub fn is_same_type(&self, other: &CurveType) -> bool {
+        matches!((self, other), (CurveType::Linear, CurveType::Linear))
+            || matches!((self, other), (CurveType::Step, CurveType::Step))
+            || matches!(
+                (self, other),
+                (CurveType::Smooth { .. }, CurveType::Smooth { .. })
+            )
+    }
 }
