@@ -1,7 +1,7 @@
 use crate::{
     data_types::{PlaybackContext, Ticks},
     node::builtin::{
-        Keyframe,
+        CurveType, Keyframe,
         automation_node::{
             NormalizedKeyframe, constant::ConstantAutomationCursor, float::FloatAutomationCursor,
         },
@@ -313,6 +313,15 @@ impl AutomationTrack {
             && let Some(keyframe) = keyframes.get_mut(index)
         {
             keyframe.value = value;
+        }
+    }
+
+    /// Sets a curve type for the keyframe at the specified index.
+    pub fn set_curve_type(&mut self, index: usize, new_curve: CurveType) {
+        if let AutomationTrack::Float { keyframes, .. } = self
+            && let Some(keyframe) = keyframes.get_mut(index)
+        {
+            keyframe.curve = new_curve;
         }
     }
 
