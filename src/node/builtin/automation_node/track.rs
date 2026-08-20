@@ -19,6 +19,16 @@ pub enum AutomationTrackType {
     Bool,
 }
 
+impl AutomationTrackType {
+    pub fn all() -> &'static [AutomationTrackType] {
+        &[
+            AutomationTrackType::Float,
+            AutomationTrackType::Int,
+            AutomationTrackType::Bool,
+        ]
+    }
+}
+
 /// A track that stores keyframes for a specific node and input index.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AutomationTrack {
