@@ -12,6 +12,13 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::ops::{Range, RangeInclusive};
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AutomationTrackType {
+    Float,
+    Int,
+    Bool,
+}
+
 /// A track that stores keyframes for a specific node and input index.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AutomationTrack {
@@ -83,6 +90,16 @@ impl AutomationTrack {
             keyframes: Vec::new(),
             keyframe_samples: Vec::new(),
             automation_cursor: ConstantAutomationCursor::default(),
+        }
+    }
+
+    // --- TYPE GETTING ---
+
+    pub fn track_type(&self) -> AutomationTrackType {
+        match self {
+            AutomationTrack::Float { .. } => AutomationTrackType::Float,
+            AutomationTrack::Int { .. } => AutomationTrackType::Int,
+            AutomationTrack::Bool { .. } => AutomationTrackType::Bool,
         }
     }
 

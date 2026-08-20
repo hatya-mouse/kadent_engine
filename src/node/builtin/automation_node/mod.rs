@@ -4,11 +4,9 @@ mod float;
 mod keyframe;
 mod track;
 
-use std::slice;
-
 pub use curve::CurveType;
 pub use keyframe::{AutomationTarget, Keyframe, NormalizedKeyframe};
-pub use track::AutomationTrack;
+pub use track::{AutomationTrack, AutomationTrackType};
 
 use crate::{
     data_types::{PlaybackContext, TypeInfo},
@@ -16,6 +14,7 @@ use crate::{
     node::Node,
     timing::TempoMap,
 };
+use std::slice;
 
 #[derive(Clone)]
 pub struct AutomationNode {
