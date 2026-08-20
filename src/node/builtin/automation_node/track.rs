@@ -231,7 +231,7 @@ impl AutomationTrack {
     // --- MODIFICATION ---
 
     /// Adds a new keyframe to the track, maintaining the sorted order by ticks.
-    pub fn add_keyframe<T>(&mut self, keyframe: Keyframe<T>) -> usize
+    pub fn add_float_keyframe<T>(&mut self, keyframe: Keyframe<T>) -> usize
     where
         T: AutomationTarget,
     {
@@ -265,19 +265,23 @@ impl AutomationTrack {
 
     /// Sets a new float value for the keyframe at the specified index.
     pub fn set_float_value(&mut self, index: usize, value: f32) {
-        if let AutomationTrack::Float { keyframes, .. } = self
+        if let AutomationTrack::Float {
+            keyframes, range, ..
+        } = self
             && let Some(keyframe) = keyframes.get_mut(index)
         {
-            keyframe.value = value;
+            keyframe.value = value.clamp(*range.start(), *range.end());
         }
     }
 
     /// Sets a new int value for the keyframe at the specified index.
     pub fn set_int_value(&mut self, index: usize, value: i32) {
-        if let AutomationTrack::Int { keyframes, .. } = self
+        if let AutomationTrack::Int {
+            keyframes, range, ..
+        } = self
             && let Some(keyframe) = keyframes.get_mut(index)
         {
-            keyframe.value = value;
+            keyframe.value = value.clamp(*range.start(), *range.end());
         }
     }
 
