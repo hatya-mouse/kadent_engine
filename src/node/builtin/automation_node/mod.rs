@@ -7,7 +7,7 @@ mod track;
 use std::slice;
 
 pub use curve::CurveType;
-pub use keyframe::{AutomationTarget, Keyframe};
+pub use keyframe::{AutomationTarget, Keyframe, NormalizedKeyframe};
 pub use track::AutomationTrack;
 
 use crate::{

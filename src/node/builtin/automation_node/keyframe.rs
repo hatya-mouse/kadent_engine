@@ -17,6 +17,24 @@ impl<T> Keyframe<T> {
     }
 }
 
+pub struct NormalizedKeyframe {
+    pub index: usize,
+    pub tick: Ticks,
+    pub curve: CurveType,
+    pub value: f32,
+}
+
+impl NormalizedKeyframe {
+    pub fn new(index: usize, tick: Ticks, curve: CurveType, value: f32) -> Self {
+        Self {
+            index,
+            tick,
+            curve,
+            value,
+        }
+    }
+}
+
 pub trait AutomationTarget: Sized {
     fn keyframes(track: &AutomationTrack) -> Option<&[Keyframe<Self>]>;
 

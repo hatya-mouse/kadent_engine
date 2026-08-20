@@ -1,9 +1,10 @@
 use crate::{
     data_types::{PlaybackContext, Ticks},
     node::builtin::{
-        CurveType, Keyframe,
+        Keyframe,
         automation_node::{
-            AutomationTarget, constant::ConstantAutomationCursor, float::FloatAutomationCursor,
+            AutomationTarget, NormalizedKeyframe, constant::ConstantAutomationCursor,
+            float::FloatAutomationCursor,
         },
     },
     timing::TempoMap,
@@ -88,48 +89,78 @@ impl AutomationTrack {
     // --- ITERATOR ---
 
     /// Returns an vector over the float representation of the value in the given tick range and the last and the first keyframes outside the range.
-    pub fn normalized_keyframes_around(
-        &self,
-        tick_range: Range<Ticks>,
-    ) -> Vec<(Ticks, CurveType, f32)> {
+    pub fn normalized_keyframes_around(&self, tick_range: Range<Ticks>) -> Vec<NormalizedKeyframe> {
         match self {
             AutomationTrack::Float {
                 keyframes, range, ..
             } => {
                 let min = *range.start();
                 let range = (range.end() - range.start()).max(1e-6);
-                Self::keyframes_around_range(keyframes, tick_range)
-                    .into_iter()
-                    .flatten()
-                    .map(|keyframe| {
-                        let normalized = (keyframe.value - min) / range;
-                        (keyframe.tick, keyframe.curve, normalized)
-                    })
-                    .collect()
+                if let Some((first_index, keyframes)) =
+                    Self::keyframes_around_range(keyframes, tick_range)
+                {
+                    keyframes
+                        .iter()
+                        .enumerate()
+                        .map(|(index, keyframe)| {
+                            let normalized = (keyframe.value - min) / range;
+                            NormalizedKeyframe::new(
+                                first_index + index,
+                                keyframe.tick,
+                                keyframe.curve,
+                                normalized,
+                            )
+                        })
+                        .collect()
+                } else {
+                    Vec::new()
+                }
             }
             AutomationTrack::Int {
                 keyframes, range, ..
             } => {
                 let min = *range.start();
                 let range = ((range.end() - range.start()) as f32).max(1e-6);
-                Self::keyframes_around_range(keyframes, tick_range)
-                    .into_iter()
-                    .flatten()
-                    .map(|keyframe| {
-                        let normalized = (keyframe.value - min) as f32 / range;
-                        (keyframe.tick, keyframe.curve, normalized)
-                    })
-                    .collect()
+                if let Some((first_index, keyframes)) =
+                    Self::keyframes_around_range(keyframes, tick_range)
+                {
+                    keyframes
+                        .iter()
+                        .enumerate()
+                        .map(|(index, keyframe)| {
+                            let normalized = (keyframe.value - min) as f32 / range;
+                            NormalizedKeyframe::new(
+                                first_index + index,
+                                keyframe.tick,
+                                keyframe.curve,
+                                normalized,
+                            )
+                        })
+                        .collect()
+                } else {
+                    Vec::new()
+                }
             }
             AutomationTrack::Bool { keyframes, .. } => {
-                Self::keyframes_around_range(keyframes, tick_range)
-                    .into_iter()
-                    .flatten()
-                    .map(|keyframe| {
-                        let normalized = if keyframe.value { 1.0 } else { 0.0 };
-                        (keyframe.tick, keyframe.curve, normalized)
-                    })
-                    .collect()
+                if let Some((first_index, keyframes)) =
+                    Self::keyframes_around_range(keyframes, tick_range)
+                {
+                    keyframes
+                        .iter()
+                        .enumerate()
+                        .map(|(index, keyframe)| {
+                            let normalized = if keyframe.value { 1.0 } else { 0.0 };
+                            NormalizedKeyframe::new(
+                                first_index + index,
+                                keyframe.tick,
+                                keyframe.curve,
+                                normalized,
+                            )
+                        })
+                        .collect()
+                } else {
+                    Vec::new()
+                }
             }
         }
     }
@@ -138,10 +169,10 @@ impl AutomationTrack {
     fn keyframes_around_range<T>(
         keyframes: &[Keyframe<T>],
         tick_range: Range<Ticks>,
-    ) -> Option<&[Keyframe<T>]> {
+    ) -> Option<(usize, &[Keyframe<T>])> {
         // Return if there are no keyframes
         if keyframes.is_empty() {
-            return Some(keyframes);
+            return Some((0, keyframes));
         }
 
         let first_index = keyframes
@@ -152,7 +183,7 @@ impl AutomationTrack {
             .saturating_add(1)
             .min(keyframes.len());
 
-        Some(&keyframes[first_index..last_index])
+        Some((first_index, &keyframes[first_index..last_index]))
     }
 
     /// Returns the index of the first keyframe that is greater than or equal to the given tick range.
