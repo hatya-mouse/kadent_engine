@@ -62,6 +62,11 @@ pub enum TimeBounds {
 }
 
 impl TimeBounds {
+    pub const ZERO: TimeBounds = TimeBounds::Musical {
+        start: Ticks(0),
+        duration: Ticks(0),
+    };
+
     /// Returns the timebase of the time bounds.
     pub fn timebase(&self) -> Timebase {
         match *self {
