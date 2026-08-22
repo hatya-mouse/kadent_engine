@@ -59,6 +59,23 @@ impl ProjectData {
         }
     }
 
+    /// Creates a new project with all the specified parameters.
+    pub fn with_all(
+        tracks: HashMap<TrackID, Box<dyn Track>>,
+        tempo_map: TempoMap,
+        audio_ctx: AudioContext,
+        export_range: TimeBounds,
+        next_track_id: u64,
+    ) -> Self {
+        Self {
+            tracks,
+            tempo_map,
+            audio_ctx,
+            export_range,
+            next_track_id,
+        }
+    }
+
     // --- TRACK ID GENERATION ---
 
     /// Sets the next track ID for generating track IDs.
